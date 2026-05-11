@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
 from plugins.today_scraper.models import db, Article, Subscription, PushRecord, init_db
-from plugins.today_scraper.pusher import match_subscriptions, build_push_message, build_search_message
+from plugins.today_scraper.pusher import match_subscriptions, build_push_nodes
 
 
 @pytest.fixture(autouse=True)
@@ -42,27 +42,22 @@ def test_no_match_returns_empty():
     assert targets == []
 
 
-def test_build_push_message():
+def test_build_push_nodes():
     articles = [
-        {"title": "公告一", "source_dept": "能源学院", "url": "https://today.hit.edu.cn/article/2026/05/10/1"},
-        {"title": "公告二", "source_dept": None, "url": "https://today.hit.edu.cn/article/2026/05/10/2"},
+        {"title": "公告一", "source_dept": "能源学院", "url": "https://today.hit.edu.cn/article/1", "published_at": datetime(2026, 5, 10, 12, 0)},
+        {"title": "公告二", "source_dept": None, "url": "https://today.hit.edu.cn/article/2", "published_at": None},
     ]
-    msg = build_push_message(articles)
-    assert "公告一" in msg
-    assert "能源学院" in msg
-    assert "公告二" in msg
-    assert "today.hit.edu.cn" in msg
+    nodes = build_push_nodes(articles, bot_id=123456)
+    assert len(nodes) == 2
+    assert nodes[0]["type"] == "node"
+    assert nodes[0]["data"]["user_id"] == "123456"
+    assert nodes[0]["data"]["nickname"] == "今日哈工大"
+    # content 中应包含标题
+    content = nodes[0]["data"]["content"]
+    assert any("公告一" in seg["data"]["text"] for seg in content if seg["type"] == "text")
+    assert any("能源学院" in seg["data"]["text"] for seg in content if seg["type"] == "text")
 
 
-def test_build_push_message_empty():
-    msg = build_push_message([])
-    assert "暂无" in msg
-
-
-def test_build_search_message():
-    results = [
-        {"title": "创新大赛通知", "url": "https://today.hit.edu.cn/article/2026/05/08/100", "summary": "关于举办..."},
-    ]
-    msg = build_search_message("创新大赛", results, page=1, total=15)
-    assert "创新大赛" in msg
-    assert "创新大赛通知" in msg
+def test_build_push_nodes_empty():
+    nodes = build_push_nodes([], bot_id=123456)
+    assert nodes == []

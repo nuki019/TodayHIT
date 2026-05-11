@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from .models import Article, PushRecord, Subscription
+
+
+def _format_time(dt: datetime | None) -> str:
+    if not dt:
+        return "未知"
+    return dt.strftime("%Y-%m-%d %H:%M")
 
 
 def match_subscriptions(article: Article) -> list[tuple[str, str]]:
@@ -45,22 +52,25 @@ def mark_pushed(article_id: int, target_type: str, target_id: str) -> None:
     ).on_conflict_ignore().execute()
 
 
-def build_push_message(articles: list[dict[str, Any]]) -> str:
-    """构建推送消息文本。"""
+def build_push_nodes(articles: list[dict[str, Any]], bot_id: int) -> list[dict]:
+    """构建推送转发消息节点列表。"""
     if not articles:
-        return "暂无新公告"
+        return []
 
-    lines = ["📢 今日哈工大 · 新公告", "━" * 18]
-    for i, a in enumerate(articles, 1):
+    nodes = []
+    for a in articles:
         dept = a.get("source_dept") or "未知"
-        lines.append(f"📌 {a['title']}")
-        lines.append(f"   {dept}")
-        lines.append(f"   {a['url']}")
-        if i < len(articles):
-            lines.append("")
-    lines.append("━" * 18)
-    lines.append(f"共 {len(articles)} 条新公告 | /today help 查看命令")
-    return "\n".join(lines)
+        time_str = _format_time(a.get("published_at"))
+        text = f"📌 {a['title']}\n📅 {time_str}\n🏫 {dept}\n🔗 {a['url']}"
+        nodes.append({
+            "type": "node",
+            "data": {
+                "user_id": str(bot_id),
+                "nickname": "今日哈工大",
+                "content": [{"type": "text", "data": {"text": text}}],
+            },
+        })
+    return nodes
 
 
 def build_search_message(

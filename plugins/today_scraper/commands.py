@@ -1,14 +1,15 @@
-from datetime import datetime
-
+import nonebot
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageEvent
 from nonebot.params import CommandArg
 
 from .models import Article, Subscription
-from .scraper import fetch_search_page, parse_search_page
+from .search import MAX_RESULTS, build_forward_nodes, build_query, parse_search_args
 
 VALID_CATEGORIES = {"公告公示", "新闻快讯"}
 
+
+# ── helpers ─────────────────────────────────────────────
 
 def _get_target(event: MessageEvent) -> tuple[str, str]:
     if isinstance(event, GroupMessageEvent):
@@ -16,27 +17,37 @@ def _get_target(event: MessageEvent) -> tuple[str, str]:
     return "private", str(event.user_id)
 
 
-def _format_time(dt: datetime | None) -> str:
-    if not dt:
-        return ""
-    return dt.strftime("%Y-%m-%d %H:%M")
+async def _send_forward(bot, event: MessageEvent, nodes: list[dict]):
+    """发送合并转发消息（群/私聊自适应）。"""
+    if not nodes:
+        await bot.send(event, "暂无数据")
+        return
+    target_type, target_id = _get_target(event)
+    try:
+        if target_type == "group":
+            await bot.call_api(
+                "send_group_forward_msg",
+                group_id=int(target_id),
+                messages=nodes,
+            )
+        else:
+            await bot.call_api(
+                "send_private_forward_msg",
+                user_id=int(target_id),
+                messages=nodes,
+            )
+    except Exception as e:
+        nonebot.logger.warning(f"合并转发失败: {e}")
+        # 回退到纯文本
+        lines = []
+        for n in nodes:
+            for seg in n.get("data", {}).get("content", []):
+                if seg.get("type") == "text":
+                    lines.append(seg["data"]["text"])
+        await bot.send(event, "\n---\n".join(lines))
 
 
-def _format_articles(articles: list, title: str) -> str:
-    """格式化文章列表。"""
-    if not articles:
-        return f"{title}\n━━━━━━━━━━\n暂无数据"
-    lines = [title, "━" * 16]
-    for i, a in enumerate(articles, 1):
-        dept = a.source_dept or "未知"
-        time_str = _format_time(a.published_at) or ""
-        lines.append(f"{i}. {a.title}")
-        lines.append(f"   {dept} | {time_str}")
-        lines.append(f"   {a.url}")
-    lines.append("━" * 16)
-    lines.append(f"共 {len(articles)} 条")
-    return "\n".join(lines)
-
+# ── 命令注册 ────────────────────────────────────────────
 
 cmd_today = on_command("today", priority=10, block=True)
 
@@ -46,17 +57,20 @@ async def handle_today(event: MessageEvent, args: Message = CommandArg()):
     arg_text = args.extract_plain_text().strip()
 
     if not arg_text:
+        # 最新公告（转发消息）
         articles = list(
             Article.select()
             .where(Article.published_at.is_null(False))
             .order_by(Article.published_at.desc())
-            .limit(10)
+            .limit(MAX_RESULTS)
         )
         if not articles:
-            articles = list(Article.select().order_by(Article.id.desc()).limit(10))
+            articles = list(Article.select().order_by(Article.id.desc()).limit(MAX_RESULTS))
         if not articles:
             await cmd_today.finish("暂无公告数据，请等待定时采集完成。")
-        await cmd_today.finish(_format_articles(articles, "📢 最新公告"))
+        bot = nonebot.get_bot()
+        nodes = build_forward_nodes(articles, int(event.self_id))
+        await _send_forward(bot, event, nodes)
         return
 
     parts = arg_text.split(maxsplit=1)
@@ -64,9 +78,9 @@ async def handle_today(event: MessageEvent, args: Message = CommandArg()):
     rest = parts[1] if len(parts) > 1 else ""
 
     if subcmd == "search":
-        await _handle_search(cmd_today, rest)
+        await _handle_search(cmd_today, event, rest)
     elif subcmd == "dept":
-        await _handle_dept(cmd_today, rest)
+        await _handle_dept(cmd_today, event, rest)
     elif subcmd == "sub":
         await _handle_subscribe(cmd_today, event, rest)
     elif subcmd == "unsub":
@@ -75,35 +89,55 @@ async def handle_today(event: MessageEvent, args: Message = CommandArg()):
         await _handle_list(cmd_today, event)
     elif subcmd == "stat":
         await _handle_stat(cmd_today)
+    elif subcmd == "scrape":
+        await _handle_scrape(cmd_today, event)
     elif subcmd == "help":
         await _handle_help(cmd_today)
     else:
+        # 尝试当作时间过滤的最新公告：/today --time 24.01.01~24.05.11
+        keyword, time_range = parse_search_args(arg_text)
+        if time_range and not keyword:
+            articles = build_query("", time_range)
+            if not articles:
+                await cmd_today.finish("该时间范围内暂无公告。")
+            bot = nonebot.get_bot()
+            nodes = build_forward_nodes(articles, int(event.self_id))
+            await _send_forward(bot, event, nodes)
+            return
         await _handle_help(cmd_today)
 
 
-async def _handle_search(matcher, arg_text: str):
-    """在本地数据库搜索标题。"""
+async def _handle_search(matcher, event: MessageEvent, arg_text: str):
+    """高级搜索：精确优先 + AND/OR/REGEX + 时间过滤。"""
     if not arg_text:
-        await matcher.finish("用法: /today search <关键词>")
+        await matcher.finish(
+            "用法: /today search <关键词>\n"
+            "多词AND: 机电 学院\n"
+            "OR: 奖学金|评优\n"
+            "正则: re:2024年.*评选\n"
+            "时间: --time 24.01.01~24.12.31"
+        )
 
-    keyword = arg_text.strip()
-    articles = list(
-        Article.select()
-        .where(Article.title.contains(keyword))
-        .order_by(Article.published_at.desc(nulls="LAST"), Article.id.desc())
-        .limit(10)
-    )
+    keyword, time_range = parse_search_args(arg_text)
+    if not keyword and not time_range:
+        await matcher.finish("请输入搜索关键词或时间范围。")
+
+    articles = build_query(keyword, time_range)
 
     if not articles:
-        await matcher.finish(f'搜索"{keyword}" - 无结果\n试试其他关键词？')
+        hint = f'搜索"{keyword}"' if keyword else "该时间范围"
+        await matcher.finish(f"{hint} - 无结果\n试试其他关键词？")
 
-    await matcher.finish(_format_articles(articles, f'🔍 搜索"{keyword}"'))
+    bot = nonebot.get_bot()
+    nodes = build_forward_nodes(articles, int(event.self_id))
+    desc = f'搜索"{keyword}"' if keyword else "时间筛选"
+    nonebot.logger.info(f"{desc}: {len(articles)} 条结果")
+    await _send_forward(bot, event, nodes)
 
 
-async def _handle_dept(matcher, arg_text: str):
-    """按部门筛选。"""
+async def _handle_dept(matcher, event: MessageEvent, arg_text: str):
+    """按部门筛选，输出转发消息。"""
     if not arg_text:
-        # 显示所有部门列表
         depts = (
             Article.select(Article.source_dept)
             .where(Article.source_dept.is_null(False), Article.source_dept != "")
@@ -124,32 +158,43 @@ async def _handle_dept(matcher, arg_text: str):
         await matcher.finish("\n".join(lines))
         return
 
-    dept_name = arg_text.strip()
-    articles = list(
+    keyword, time_range = parse_search_args(arg_text)
+    dept_name = keyword.strip()
+
+    query = (
         Article.select()
         .where(Article.source_dept.contains(dept_name))
         .order_by(Article.published_at.desc(nulls="LAST"), Article.id.desc())
-        .limit(10)
+        .limit(MAX_RESULTS)
     )
+    if time_range:
+        start, end = time_range
+        query = query.where(Article.published_at.between(start, end))
 
+    articles = list(query)
     if not articles:
         await matcher.finish(f'部门"{dept_name}" - 无结果\n使用 /today dept 查看所有部门')
 
-    await matcher.finish(_format_articles(articles, f'📌 {dept_name} 相关公告'))
+    bot = nonebot.get_bot()
+    nodes = build_forward_nodes(articles, int(event.self_id))
+    await _send_forward(bot, event, nodes)
 
 
 async def _handle_stat(matcher):
     """显示数据库统计。"""
     total = Article.select().count()
-    with_dept = Article.select().where(Article.source_dept.is_null(False), Article.source_dept != "").count()
+    with_dept = Article.select().where(
+        Article.source_dept.is_null(False), Article.source_dept != ""
+    ).count()
     with_cat = Article.select().where(Article.category.is_null(False)).count()
+    with_time = Article.select().where(Article.published_at.is_null(False)).count()
+    sep = "━" * 16
     await matcher.finish(
-        f"📊 数据库统计\n"
-        f"━" * 16 + "\n"
+        f"📊 数据库统计\n{sep}\n"
         f"总文章数: {total}\n"
         f"有部门信息: {with_dept}\n"
         f"有分类信息: {with_cat}\n"
-        f"━" * 16
+        f"有时间信息: {with_time}\n{sep}"
     )
 
 
@@ -237,15 +282,32 @@ async def _handle_list(matcher, event: MessageEvent):
     await matcher.finish("\n".join(lines))
 
 
+async def _handle_scrape(matcher, event: MessageEvent):
+    """手动触发爬取。"""
+    await matcher.send("开始爬取最新文章...")
+    try:
+        from . import scrape_and_push
+        await scrape_and_push()
+        total = Article.select().count()
+        await matcher.finish(f"爬取完成！数据库共 {total} 条文章。")
+    except Exception as e:
+        await matcher.finish(f"爬取出错: {e}")
+
+
 async def _handle_help(matcher):
+    sep = "━" * 16
     await matcher.finish(
-        "📖 TodayHIT 命令帮助\n"
-        "━" * 16 + "\n"
-        "/today — 最新公告（按时间排序）\n"
-        "/today search <关键词> — 标题搜索\n"
+        f"📖 TodayHIT 命令帮助\n{sep}\n"
+        "/today — 最新公告（转发消息卡片）\n"
+        "/today search <关键词> — 搜索（精确优先）\n"
+        "/today search 机电 学院 — AND 搜索\n"
+        "/today search 奖学金|评优 — OR 搜索\n"
+        "/today search re:正则 — 正则搜索\n"
+        "/today search XX --time 24.01.01~24.12.31\n"
         "/today dept — 查看所有部门\n"
         "/today dept <部门名> — 按部门筛选\n"
         "/today stat — 数据库统计\n"
+        "/today scrape — 手动爬取最新文章\n"
         "/today sub category <分类> — 订阅分类\n"
         "/today sub keyword <词> — 订阅关键词\n"
         "/today unsub <序号> — 取消订阅\n"

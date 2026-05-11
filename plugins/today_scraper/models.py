@@ -83,3 +83,15 @@ def init_db(db_path: str) -> None:
     db.init(db_path)
     db.connect(reuse_if_open=True)
     db.create_tables([Article, Subscription, PushRecord, ScraperState])
+    # 注册 REGEXP 函数供 SQLite 正则查询使用
+    db.register_function(_regexp, "REGEXP")
+
+
+def _regexp(pattern: str, value: str) -> bool:
+    """SQLite REGEXP 用户自定义函数。"""
+    import re
+
+    try:
+        return bool(re.search(pattern, value or ""))
+    except re.error:
+        return False

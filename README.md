@@ -28,13 +28,21 @@ C:\Users\wfy\.conda\envs\todayhit\python.exe bot.py
 
 ## QQ 命令
 
+所有查询结果以**合并转发消息卡片**形式输出，每条包含标题、时间、部门、链接，单次最多 50 条。
+
 | 命令 | 说明 |
 |------|------|
-| `/today` | 最新公告（按时间排序） |
-| `/today search <关键词>` | 按标题搜索 |
+| `/today` | 最新公告（按时间排序，转发卡片） |
+| `/today search <关键词>` | 搜索（精确匹配优先，不够再模糊补） |
+| `/today search 机电 学院` | AND 搜索（空格分隔，所有词都出现） |
+| `/today search 奖学金\|评优` | OR 搜索（竖线分隔，任一词出现） |
+| `/today search re:2024年.*评选` | 正则搜索（`re:` 前缀） |
+| `/today search XX --time 24.01.01~24.12.31` | 关键词 + 时间范围过滤 |
+| `/today --time 24.05.01~24.05.11` | 按时间范围浏览公告 |
 | `/today dept` | 查看所有部门列表 |
-| `/today dept <部门名>` | 按部门筛选公告 |
+| `/today dept <部门名>` | 按部门筛选（支持 `--time`） |
 | `/today stat` | 数据库统计 |
+| `/today scrape` | 手动爬取最新文章 |
 | `/today sub category <分类>` | 订阅分类（公告公示/新闻快讯） |
 | `/today sub keyword <词>` | 订阅关键词提醒 |
 | `/today unsub <序号>` | 取消订阅 |
@@ -74,12 +82,13 @@ TodayHIT/
 ├── .env.prod                       # 环境变量
 ├── plugins/
 │   ├── today_scraper/              # 核心插件
-│   │   ├── __init__.py             # 插件入口 + 定时任务
+│   │   ├── __init__.py             # 插件入口 + 定时任务 + 启动爬取
 │   │   ├── config.py               # Pydantic 配置
-│   │   ├── models.py               # SQLite ORM (peewee)
+│   │   ├── models.py               # SQLite ORM (peewee) + REGEXP 支持
 │   │   ├── scraper.py              # RSS/分类页/搜索页爬虫
-│   │   ├── pusher.py               # 订阅匹配 + 消息构建
-│   │   └── commands.py             # 用户命令
+│   │   ├── search.py               # 搜索引擎（精确优先/AND/OR/正则/时间过滤）
+│   │   ├── pusher.py               # 订阅匹配 + 转发节点构建
+│   │   └── commands.py             # 用户命令 + 合并转发输出
 │   └── today_help/
 │       └── __init__.py             # 帮助信息
 ├── scripts/

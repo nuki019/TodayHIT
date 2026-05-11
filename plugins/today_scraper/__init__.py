@@ -4,7 +4,7 @@ import nonebot
 
 from .config import TodayHITConfig
 from .models import Article, ScraperState, init_db
-from .pusher import build_push_message, get_unpushed_articles, mark_pushed, match_subscriptions
+from .pusher import build_push_nodes, get_unpushed_articles, mark_pushed, match_subscriptions
 from .scraper import fetch_category_page, fetch_rss, parse_category_page, parse_rss
 
 # 以下 nonebot 初始化仅在完整运行时执行，测试时跳过
@@ -29,6 +29,17 @@ if _NONEBOT_READY:
     @nonebot.get_driver().on_startup
     async def startup():
         init_db(config.todayhit_db_path)
+        # 启动时自动爬取最新文章（后台执行，不阻塞启动）
+        asyncio.create_task(_startup_scrape())
+
+    async def _startup_scrape():
+        """启动后延迟执行一次爬取。"""
+        await asyncio.sleep(5)
+        try:
+            await scrape_and_push()
+            nonebot.logger.info("启动爬取完成")
+        except Exception as e:
+            nonebot.logger.warning(f"启动爬取失败: {e}")
 
     async def scrape_and_push():
         """核心定时任务：采集 + 推送。"""
@@ -110,17 +121,29 @@ if _NONEBOT_READY:
                         "title": article.title,
                         "source_dept": article.source_dept,
                         "url": article.url,
+                        "published_at": article.published_at,
                     }
                 )
                 mark_pushed(article.id, target_type, target_id)
 
+        bot_id = int(bot.self_id)
         for (target_type, target_id), articles in target_articles.items():
-            msg = build_push_message(articles)
+            nodes = build_push_nodes(articles, bot_id)
+            if not nodes:
+                continue
             try:
                 if target_type == "group":
-                    await bot.send_group_msg(group_id=int(target_id), message=msg)
+                    await bot.call_api(
+                        "send_group_forward_msg",
+                        group_id=int(target_id),
+                        messages=nodes,
+                    )
                 else:
-                    await bot.send_private_msg(user_id=int(target_id), message=msg)
+                    await bot.call_api(
+                        "send_private_forward_msg",
+                        user_id=int(target_id),
+                        messages=nodes,
+                    )
                 await asyncio.sleep(3)
             except Exception as e:
                 nonebot.logger.warning(f"推送到 {target_type}:{target_id} 失败: {e}")
