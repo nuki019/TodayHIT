@@ -3,13 +3,14 @@ import asyncio
 import nonebot
 
 from .config import TodayHITConfig
-from .models import Article, ScraperState, init_db
+from .models import Article, GroupMessage, ScraperState, Subscription, init_db
 from .pusher import build_push_nodes, get_unpushed_articles, mark_pushed, match_subscriptions
 from .scraper import fetch_category_page, fetch_rss, parse_category_page, parse_rss
 
 # 以下 nonebot 初始化仅在完整运行时执行，测试时跳过
 try:
-    from nonebot import get_plugin_config, require
+    from nonebot import get_plugin_config, on_message, require
+    from nonebot.adapters.onebot.v11 import GroupMessageEvent
 
     require("nonebot_plugin_apscheduler")
     from nonebot_plugin_apscheduler import scheduler  # noqa: E402
@@ -26,28 +27,65 @@ CATEGORY_MAP = {10: "公告公示", 11: "新闻快讯"}
 
 if _NONEBOT_READY:
 
+    # ── 消息计数监听器 ──────────────────────────────────
+
+    msg_counter = on_message(priority=0, block=False)
+
+
+    @msg_counter.handle()
+    async def count_group_message(event: GroupMessageEvent):
+        """统计群消息条数（不存内容），用于找群友加权。"""
+        nickname = getattr(event, "sender", None)
+        name = ""
+        if nickname:
+            name = nickname.card or nickname.nickname or ""
+        GroupMessage.increment(
+            group_id=str(event.group_id),
+            user_id=str(event.user_id),
+            nickname=name,
+        )
+
+    # ── 启动钩子 ────────────────────────────────────────
+
     @nonebot.get_driver().on_startup
     async def startup():
         init_db(config.todayhit_db_path)
-        # 启动时自动爬取最新文章（后台执行，不阻塞启动）
         asyncio.create_task(_startup_scrape())
+        asyncio.create_task(_sync_group_members())
 
     async def _startup_scrape():
         """启动后延迟执行一次爬取。"""
         await asyncio.sleep(5)
         try:
-            await scrape_and_push()
+            await scrape_only()
             nonebot.logger.info("启动爬取完成")
         except Exception as e:
             nonebot.logger.warning(f"启动爬取失败: {e}")
 
-    async def scrape_and_push():
-        """核心定时任务：采集 + 推送。"""
+    async def _sync_group_members():
+        """同步所有群成员昵称到 GroupMessage 表。"""
+        await asyncio.sleep(10)
+        try:
+            bot = nonebot.get_bot()
+            groups = await bot.call_api("get_group_list")
+            for g in groups:
+                gid = str(g["group_id"])
+                members = await bot.call_api("get_group_member_list", group_id=int(gid))
+                for m in members:
+                    name = m.get("card") or m.get("nickname") or ""
+                    GroupMessage.increment(gid, str(m["user_id"]), name)
+            nonebot.logger.info(f"群成员同步完成，共 {len(groups)} 个群")
+        except Exception as e:
+            nonebot.logger.warning(f"群成员同步失败: {e}")
+
+    # ── 核心采集 ────────────────────────────────────────
+
+    async def scrape_only() -> int:
+        """仅采集，不推送。返回新增 RSS 文章数。"""
         base_url = config.todayhit_base_url
         delay = config.todayhit_request_delay
-        max_push = config.todayhit_max_push_per_round
 
-        # 1. 采集 RSS
+        # 1. RSS
         try:
             rss_text = await fetch_rss(base_url)
             items = parse_rss(rss_text)
@@ -72,7 +110,7 @@ if _NONEBOT_READY:
             if max_id > last_rss_id:
                 ScraperState.set("last_rss_id", str(max_id))
 
-        # 2. 分类页补充采集
+        # 2. 分类页
         for cat_id, cat_name in CATEGORY_MAP.items():
             try:
                 await asyncio.sleep(delay)
@@ -90,7 +128,6 @@ if _NONEBOT_READY:
                     Article.update(category=cat_name).where(
                         Article.id == a["id"], Article.category.is_null()
                     ).execute()
-                    # 补充缺失的时间信息（从 URL 日期提取）
                     if a.get("published_at"):
                         Article.update(published_at=a["published_at"]).where(
                             Article.id == a["id"], Article.published_at.is_null()
@@ -99,18 +136,25 @@ if _NONEBOT_READY:
                 nonebot.logger.warning(f"分类页 {cat_name} 采集失败: {e}")
 
         nonebot.logger.info(f"采集完成，新增 {new_count} 条 RSS 文章")
+        return new_count
 
-        # 3. 推送
+    # ── 订阅推送（原有逻辑） ────────────────────────────
+
+    async def scrape_and_push():
+        """采集 + 订阅推送。"""
+        await scrape_only()
+
+        max_push = config.todayhit_max_push_per_round
         unpushed = get_unpushed_articles(max_push)
         if not unpushed:
             nonebot.logger.info("无新文章需推送")
             return
 
-        bots = nonebot.get_bots()
-        if not bots:
+        try:
+            bot = nonebot.get_bot()
+        except Exception:
             nonebot.logger.warning("无可用 Bot，跳过推送")
             return
-        bot = next(iter(bots.values()))
 
         target_articles: dict[tuple[str, str], list[dict]] = {}
         for article in unpushed:
@@ -154,10 +198,111 @@ if _NONEBOT_READY:
             except Exception as e:
                 nonebot.logger.warning(f"推送到 {target_type}:{target_id} 失败: {e}")
 
+    # ── 每日广播推送（7:30 cron） ──────────────────────
+
+    async def daily_push():
+        """每天 7:30：爬取 → 广播所有群 → 等 10s → 推送私聊订阅用户。"""
+        await scrape_only()
+
+        max_push = config.todayhit_max_push_per_round
+        unpushed = get_unpushed_articles(max_push)
+        if not unpushed:
+            nonebot.logger.info("每日推送：无新文章")
+            return
+
+        try:
+            bot = nonebot.get_bot()
+        except Exception:
+            nonebot.logger.warning("每日推送：无可用 Bot")
+            return
+
+        bot_id = int(bot.self_id)
+        articles_dicts = [
+            {
+                "title": a.title,
+                "source_dept": a.source_dept,
+                "url": a.url,
+                "published_at": a.published_at,
+            }
+            for a in unpushed
+        ]
+        nodes = build_push_nodes(articles_dicts, bot_id)
+        if not nodes:
+            return
+
+        # 1. 广播所有群
+        try:
+            groups = await bot.call_api("get_group_list")
+            for g in groups:
+                gid = g["group_id"]
+                try:
+                    await bot.call_api(
+                        "send_group_forward_msg",
+                        group_id=gid,
+                        messages=nodes,
+                    )
+                    mark_pushed_batch(unpushed, "group", str(gid))
+                except Exception as e:
+                    nonebot.logger.warning(f"广播群 {gid} 失败: {e}")
+                await asyncio.sleep(3)
+        except Exception as e:
+            nonebot.logger.warning(f"获取群列表失败: {e}")
+
+        # 2. 等待 10 秒
+        await asyncio.sleep(10)
+
+        # 3. 推送私聊订阅用户
+        private_subs = (
+            Subscription.select(Subscription.target_id)
+            .where(Subscription.target_type == "private")
+            .distinct()
+        )
+        for sub in private_subs:
+            try:
+                await bot.call_api(
+                    "send_private_forward_msg",
+                    user_id=int(sub.target_id),
+                    messages=nodes,
+                )
+                mark_pushed_batch(unpushed, "private", sub.target_id)
+            except Exception as e:
+                nonebot.logger.warning(f"推送私聊 {sub.target_id} 失败: {e}")
+            await asyncio.sleep(3)
+
+        nonebot.logger.info(f"每日推送完成：{len(groups) if 'groups' in dir() else 0} 个群 + 私聊订阅用户")
+
+    def mark_pushed_batch(articles: list, target_type: str, target_id: str):
+        """批量标记已推送。"""
+        for a in articles:
+            mark_pushed(a.id, target_type, target_id)
+
+    # ── 管理员命令入口（供 commands.py 调用） ───────────
+
+    async def admin_force_push():
+        """管理员强制推送：爬取 + 广播。"""
+        await daily_push()
+
+    async def admin_force_scrape():
+        """管理员强制爬取：仅爬取不推送。"""
+        return await scrape_only()
+
+    # ── 定时任务注册 ────────────────────────────────────
+
+    # 每 4 小时：采集 + 订阅推送
     scheduler.add_job(
         scrape_and_push,
         "interval",
         seconds=config.todayhit_scrape_interval,
         id="todayhit_scrape",
+        replace_existing=True,
+    )
+
+    # 每天 7:30：采集 + 广播所有群 + 私聊订阅
+    scheduler.add_job(
+        daily_push,
+        "cron",
+        hour=7,
+        minute=30,
+        id="todayhit_daily_push",
         replace_existing=True,
     )

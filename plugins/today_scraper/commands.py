@@ -1,11 +1,24 @@
+import random
+
 import nonebot
 from nonebot import on_keyword
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent, MessageSegment
 
-from .models import Article, Subscription
+from .config import TodayHITConfig
+from .models import Article, GroupMessage, Subscription
 from .search import MAX_RESULTS, build_forward_nodes, build_query, parse_search_args
 
 VALID_CATEGORIES = {"公告公示", "新闻快讯"}
+
+try:
+    _config = nonebot.get_plugin_config(TodayHITConfig)
+    _ADMIN_QQS = set(_config.todayhit_admin_qqs)
+except Exception:
+    _ADMIN_QQS = {2990056153}
+
+
+def _is_admin(event: MessageEvent) -> bool:
+    return int(event.user_id) in _ADMIN_QQS
 
 # ── helpers ─────────────────────────────────────────────
 
@@ -120,9 +133,23 @@ async def handle_tian(event: MessageEvent):
     elif subcmd == "统计":
         await _handle_stat()
 
-    # ── 爬取 ──
-    elif subcmd == "爬取":
-        await _handle_scrape()
+    # ── 找群友 ──
+    elif subcmd == "找群友":
+        await _handle_find_member(event)
+
+    # ── 强制推送（管理员） ──
+    elif subcmd == "强制推送":
+        if not _is_admin(event):
+            await matcher.send("🔒 这个指令只有缇安的管理员才能用哦～")
+            return
+        await _handle_force_push()
+
+    # ── 强制爬取（管理员） ──
+    elif subcmd == "强制爬取":
+        if not _is_admin(event):
+            await matcher.send("🔒 这个指令只有缇安的管理员才能用哦～")
+            return
+        await _handle_force_scrape()
 
     # ── 帮助 ──
     elif subcmd == "帮助":
@@ -343,13 +370,55 @@ async def _handle_stat():
     )
 
 
-async def _handle_scrape():
+async def _handle_find_member(event: MessageEvent):
+    """找群友：按发言次数加权随机抽取群成员。"""
+    if not isinstance(event, GroupMessageEvent):
+        await matcher.send("😵 缇安只能在群里找群友哦～")
+        return
+
+    group_id = str(event.group_id)
+    records = list(
+        GroupMessage.select()
+        .where(GroupMessage.group_id == group_id, GroupMessage.message_count > 0)
+    )
+    if not records:
+        await matcher.send("🥺 缇安还没记录到群友的发言呢～让大家多聊聊天吧！")
+        return
+
+    weights = [r.message_count for r in records]
+    chosen = random.choices(records, weights=weights, k=1)[0]
+
+    display_name = chosen.last_nickname or f"QQ:{chosen.user_id}"
+    avatar_url = f"https://q.qlogo.cn/headimg_dl?dst_uin={chosen.user_id}&spec=2&img_type=jpg"
+
+    bot = nonebot.get_bot()
+    try:
+        await bot.send(event, f"🌀 缇安为你开启百界门找到了 {display_name}！")
+        await bot.send(event, MessageSegment.image(avatar_url))
+    except Exception:
+        await bot.send(event, f"🌀 缇安为你开启百界门找到了 {display_name}！(头像加载失败)")
+
+
+async def _handle_force_push():
+    """管理员强制推送：爬取 + 广播所有群 + 私聊订阅。"""
+    await matcher.send("🚀 缇安开始强制推送！")
+    try:
+        from . import admin_force_push
+        await admin_force_push()
+        total = Article.select().count()
+        await matcher.send(f"✅ 强制推送完成！数据库共 {total} 条文章。")
+    except Exception as e:
+        await matcher.send(f"😣 强制推送出错: {e}")
+
+
+async def _handle_force_scrape():
+    """管理员强制爬取：仅爬取不推送。"""
     await matcher.send("🚀 缇安冲去爬最新文章啦！")
     try:
-        from . import scrape_and_push
-        await scrape_and_push()
+        from . import admin_force_scrape
+        count = await admin_force_scrape()
         total = Article.select().count()
-        await matcher.send(f"✅ 爬取完成！数据已更新～数据库共 {total} 条文章。")
+        await matcher.send(f"✅ 爬取完成！新增 {count} 条，数据库共 {total} 条文章。")
     except Exception as e:
         await matcher.send(f"😣 爬取出错了: {e}")
 
@@ -367,11 +436,15 @@ async def _handle_help():
         "缇安 搜索 奖学金 时间 24.01.01~24.12.31\n"
         "缇安 部门列表 — 查看所有部门\n"
         "缇安 部门 名称 — 按部门筛选\n"
+        "缇安 找群友 — 随机抽群友\n"
         "缇安 统计 — 数据库统计\n"
-        "缇安 爬取 — 手动爬取最新文章\n"
         "缇安 订阅 分类 公告公示 — 订阅分类\n"
         "缇安 订阅 关键词 招聘 — 订阅关键词\n"
         "缇安 取消订阅 序号 — 取消订阅\n"
         "缇安 我的订阅 — 查看订阅\n"
-        "缇安 帮助 — 此帮助"
+        "缇安 帮助 — 此帮助\n"
+        f"{sep}\n"
+        "管理员专属:\n"
+        "缇安 强制推送 — 爬取并广播所有群\n"
+        "缇安 强制爬取 — 仅爬取不推送"
     )

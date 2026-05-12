@@ -56,6 +56,35 @@ class PushRecord(BaseModel):
         indexes = ((("article_id", "target_type", "target_id"), True),)
 
 
+class GroupMessage(BaseModel):
+    """群消息计数，用于「找群友」加权随机。"""
+    id = AutoField()
+    group_id = TextField(null=False)
+    user_id = TextField(null=False)
+    message_count = IntegerField(default=0)
+    last_nickname = TextField(null=True)
+
+    class Meta:
+        table_name = "group_messages"
+        indexes = ((("group_id", "user_id"), True),)
+
+    @classmethod
+    def increment(cls, group_id: str, user_id: str, nickname: str = "") -> None:
+        """消息计数 +1，同时更新昵称缓存。"""
+        cls.insert(
+            group_id=group_id,
+            user_id=user_id,
+            message_count=1,
+            last_nickname=nickname or None,
+        ).on_conflict(
+            conflict_target=[cls.group_id, cls.user_id],
+            update={
+                cls.message_count: cls.message_count + 1,
+                cls.last_nickname: nickname or cls.last_nickname,
+            },
+        ).execute()
+
+
 class ScraperState(BaseModel):
     key = TextField(primary_key=True)
     value = TextField(null=True)
@@ -82,7 +111,7 @@ class ScraperState(BaseModel):
 def init_db(db_path: str) -> None:
     db.init(db_path)
     db.connect(reuse_if_open=True)
-    db.create_tables([Article, Subscription, PushRecord, ScraperState])
+    db.create_tables([Article, Subscription, PushRecord, GroupMessage, ScraperState])
     # 注册 REGEXP 函数供 SQLite 正则查询使用
     db.register_function(_regexp, "REGEXP")
 

@@ -1,5 +1,5 @@
 import pytest
-from plugins.today_scraper.models import db, Article, Subscription, PushRecord, ScraperState, init_db
+from plugins.today_scraper.models import db, Article, Subscription, PushRecord, ScraperState, GroupMessage, init_db
 
 
 @pytest.fixture(autouse=True)
@@ -65,3 +65,30 @@ def test_scraper_state_get_set():
     ScraperState.set("last_rss_id", "129700")
     assert ScraperState.get_value("last_rss_id") == "129700"
     assert ScraperState.get_value("nonexistent", "default") == "default"
+
+
+def test_group_message_increment():
+    GroupMessage.increment("111", "100", "小明")
+    GroupMessage.increment("111", "100", "小明")
+    GroupMessage.increment("111", "100", "小明")
+    record = GroupMessage.get(GroupMessage.group_id == "111", GroupMessage.user_id == "100")
+    assert record.message_count == 3
+    assert record.last_nickname == "小明"
+
+
+def test_group_message_increment_different_users():
+    GroupMessage.increment("111", "100", "小明")
+    GroupMessage.increment("111", "200", "小红")
+    GroupMessage.increment("111", "200", "小红")
+    records = list(GroupMessage.select().where(GroupMessage.group_id == "111"))
+    assert len(records) == 2
+    counts = {r.user_id: r.message_count for r in records}
+    assert counts["100"] == 1
+    assert counts["200"] == 2
+
+
+def test_group_message_nickname_update():
+    GroupMessage.increment("111", "100", "旧名")
+    GroupMessage.increment("111", "100", "新名")
+    record = GroupMessage.get(GroupMessage.group_id == "111", GroupMessage.user_id == "100")
+    assert record.last_nickname == "新名"
