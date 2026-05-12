@@ -1,13 +1,11 @@
 import nonebot
-from nonebot import on_command
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageEvent
-from nonebot.params import CommandArg
+from nonebot import on_keyword
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 
 from .models import Article, Subscription
 from .search import MAX_RESULTS, build_forward_nodes, build_query, parse_search_args
 
 VALID_CATEGORIES = {"公告公示", "新闻快讯"}
-
 
 # ── helpers ─────────────────────────────────────────────
 
@@ -38,7 +36,6 @@ async def _send_forward(bot, event: MessageEvent, nodes: list[dict]):
             )
     except Exception as e:
         nonebot.logger.warning(f"合并转发失败: {e}")
-        # 回退到纯文本
         lines = []
         for n in nodes:
             for seg in n.get("data", {}).get("content", []):
@@ -47,17 +44,31 @@ async def _send_forward(bot, event: MessageEvent, nodes: list[dict]):
         await bot.send(event, "\n---\n".join(lines))
 
 
+def _parse_args(text: str) -> tuple[str, str]:
+    """拆分子命令和剩余参数。返回 (subcmd, rest)。"""
+    text = text.strip()
+    if not text:
+        return "", ""
+    parts = text.split(maxsplit=1)
+    return parts[0], parts[1] if len(parts) > 1 else ""
+
+
 # ── 命令注册 ────────────────────────────────────────────
 
-cmd_today = on_command("today", priority=10, block=True)
+matcher = on_keyword("缇安", priority=10, block=True)
 
 
-@cmd_today.handle()
-async def handle_today(event: MessageEvent, args: Message = CommandArg()):
-    arg_text = args.extract_plain_text().strip()
+@matcher.handle()
+async def handle_tian(event: MessageEvent):
+    # 提取"缇安"之后的文本
+    raw = event.get_plaintext()
+    idx = raw.find("缇安")
+    if idx == -1:
+        return
+    arg_text = raw[idx + len("缇安"):].strip()
 
+    # ── 无参数：最新公告 ──
     if not arg_text:
-        # 最新公告（转发消息）
         articles = list(
             Article.select()
             .where(Article.published_at.is_null(False))
@@ -67,95 +78,138 @@ async def handle_today(event: MessageEvent, args: Message = CommandArg()):
         if not articles:
             articles = list(Article.select().order_by(Article.id.desc()).limit(MAX_RESULTS))
         if not articles:
-            await cmd_today.finish("暂无公告数据，请等待定时采集完成。")
+            await matcher.finish("🥺 缇安还没爬到任何公告呢～稍后再试试吧！")
         bot = nonebot.get_bot()
         nodes = build_forward_nodes(articles, int(event.self_id))
+        # 在转发卡片前发送前缀消息
+        await matcher.send("💫 缇安开门找到最新公告啦！")
         await _send_forward(bot, event, nodes)
         return
 
-    parts = arg_text.split(maxsplit=1)
-    subcmd = parts[0]
-    rest = parts[1] if len(parts) > 1 else ""
+    subcmd, rest = _parse_args(arg_text)
 
-    if subcmd == "search":
-        await _handle_search(cmd_today, event, rest)
-    elif subcmd == "dept":
-        await _handle_dept(cmd_today, event, rest)
-    elif subcmd == "sub":
-        await _handle_subscribe(cmd_today, event, rest)
-    elif subcmd == "unsub":
-        await _handle_unsubscribe(cmd_today, event, rest)
-    elif subcmd == "list":
-        await _handle_list(cmd_today, event)
-    elif subcmd == "stat":
-        await _handle_stat(cmd_today)
-    elif subcmd == "scrape":
-        await _handle_scrape(cmd_today, event)
-    elif subcmd == "help":
-        await _handle_help(cmd_today)
+    # ── 搜索 ──
+    if subcmd == "搜索":
+        await _handle_search(event, rest)
+
+    # ── 时间 ──
+    elif subcmd == "时间":
+        await _handle_time(event, rest)
+
+    # ── 部门列表 ──
+    elif subcmd == "部门列表":
+        await _handle_dept_list()
+
+    # ── 部门 ──
+    elif subcmd == "部门":
+        await _handle_dept(event, rest)
+
+    # ── 订阅 ──
+    elif subcmd == "订阅":
+        await _handle_subscribe(event, rest)
+
+    # ── 取消订阅 ──
+    elif subcmd == "取消订阅":
+        await _handle_unsubscribe(event, rest)
+
+    # ── 我的订阅 ──
+    elif subcmd == "我的订阅":
+        await _handle_list(event)
+
+    # ── 统计 ──
+    elif subcmd == "统计":
+        await _handle_stat()
+
+    # ── 爬取 ──
+    elif subcmd == "爬取":
+        await _handle_scrape()
+
+    # ── 帮助 ──
+    elif subcmd == "帮助":
+        await _handle_help()
+
     else:
-        # 尝试当作时间过滤的最新公告：/today --time 24.01.01~24.05.11
-        keyword, time_range = parse_search_args(arg_text)
-        if time_range and not keyword:
-            articles = build_query("", time_range)
-            if not articles:
-                await cmd_today.finish("该时间范围内暂无公告。")
-            bot = nonebot.get_bot()
-            nodes = build_forward_nodes(articles, int(event.self_id))
-            await _send_forward(bot, event, nodes)
-            return
-        await _handle_help(cmd_today)
+        await matcher.send("😵 缇安没听懂这个指令哦～输入「缇安 帮助」看看所有用法吧！")
 
 
-async def _handle_search(matcher, event: MessageEvent, arg_text: str):
-    """高级搜索：精确优先 + AND/OR/REGEX + 时间过滤。"""
+# ── 子命令实现 ──────────────────────────────────────────
+
+async def _handle_search(event: MessageEvent, arg_text: str):
     if not arg_text:
-        await matcher.finish(
-            "用法: /today search <关键词>\n"
-            "多词AND: 机电 学院\n"
-            "OR: 奖学金|评优\n"
-            "正则: re:2024年.*评选\n"
-            "时间: --time 24.01.01~24.12.31"
-        )
+        await matcher.send("😵 缇安没听懂这个指令哦～试试：缇安 搜索 奖学金")
+        return
 
     keyword, time_range = parse_search_args(arg_text)
     if not keyword and not time_range:
-        await matcher.finish("请输入搜索关键词或时间范围。")
+        await matcher.send("🥺 缇安需要关键词才能搜索哦～")
+        return
 
     articles = build_query(keyword, time_range)
 
     if not articles:
-        hint = f'搜索"{keyword}"' if keyword else "该时间范围"
-        await matcher.finish(f"{hint} - 无结果\n试试其他关键词？")
+        await matcher.send("🥺 缇安翻遍了所有百界门，都没找到符合条件的公告呢～换个关键词试试吧！")
+        return
 
     bot = nonebot.get_bot()
     nodes = build_forward_nodes(articles, int(event.self_id))
-    desc = f'搜索"{keyword}"' if keyword else "时间筛选"
-    nonebot.logger.info(f"{desc}: {len(articles)} 条结果")
+
+    # 根据搜索类型发送不同前缀
+    if time_range and keyword:
+        await matcher.send("🎡 缇安帮你锁定相关公告啦～")
+    elif keyword.startswith("正则:"):
+        await matcher.send("🔍 缇安用魔法正则帮你筛出符合条件公告咯～")
+    elif "/" in keyword:
+        await matcher.send("🌸 缇安挖到含任意一词的公告啦～")
+    elif len(keyword.split()) > 1:
+        await matcher.send("🎐 缇安精准锁定同时含这两个词的公告哦～")
+    else:
+        await matcher.send("🎀 缇安翻遍百界门找到相关公告啦～")
+
     await _send_forward(bot, event, nodes)
 
 
-async def _handle_dept(matcher, event: MessageEvent, arg_text: str):
-    """按部门筛选，输出转发消息。"""
+async def _handle_time(event: MessageEvent, arg_text: str):
+    keyword, time_range = parse_search_args("时间 " + arg_text)
+    if not time_range:
+        await matcher.send("😵 时间格式不对哦～试试：缇安 时间 24.04.01~24.04.30")
+        return
+
+    articles = build_query("", time_range)
+    if not articles:
+        await matcher.send("🥺 缇安翻遍了所有百界门，该时间段没有公告呢～换个时间试试吧！")
+        return
+
+    bot = nonebot.get_bot()
+    nodes = build_forward_nodes(articles, int(event.self_id))
+    await matcher.send("✨ 缇安帮你筛选出该时间段公告咯～")
+    await _send_forward(bot, event, nodes)
+
+
+async def _handle_dept_list():
+    depts = (
+        Article.select(Article.source_dept)
+        .where(Article.source_dept.is_null(False), Article.source_dept != "")
+        .group_by(Article.source_dept)
+        .order_by(Article.source_dept)
+    )
+    dept_list = [d.source_dept for d in depts if d.source_dept]
+    if not dept_list:
+        await matcher.send("🥺 缇安还没收集到部门数据呢～")
+        return
+    lines = ["📋 缇安整理好的部门列表来啦～", "━" * 16]
+    for d in dept_list[:30]:
+        cnt = Article.select().where(Article.source_dept == d).count()
+        lines.append(f"  {d} ({cnt})")
+    if len(dept_list) > 30:
+        lines.append(f"  ... 共 {len(dept_list)} 个部门")
+    lines.append("━" * 16)
+    lines.append("输入「缇安 部门 名称」查看该部门公告")
+    await matcher.send("\n".join(lines))
+
+
+async def _handle_dept(event: MessageEvent, arg_text: str):
     if not arg_text:
-        depts = (
-            Article.select(Article.source_dept)
-            .where(Article.source_dept.is_null(False), Article.source_dept != "")
-            .group_by(Article.source_dept)
-            .order_by(Article.source_dept)
-        )
-        dept_list = [d.source_dept for d in depts if d.source_dept]
-        if not dept_list:
-            await matcher.finish("暂无部门数据")
-        lines = ["📋 部门列表（部分）", "━" * 16]
-        for d in dept_list[:30]:
-            cnt = Article.select().where(Article.source_dept == d).count()
-            lines.append(f"  {d} ({cnt})")
-        if len(dept_list) > 30:
-            lines.append(f"  ... 共 {len(dept_list)} 个部门")
-        lines.append("━" * 16)
-        lines.append("/today dept <部门名> 查看该部门公告")
-        await matcher.finish("\n".join(lines))
+        await matcher.send("😵 缇安需要部门名称哦～试试：缇安 部门 机电学院")
         return
 
     keyword, time_range = parse_search_args(arg_text)
@@ -173,76 +227,64 @@ async def _handle_dept(matcher, event: MessageEvent, arg_text: str):
 
     articles = list(query)
     if not articles:
-        await matcher.finish(f'部门"{dept_name}" - 无结果\n使用 /today dept 查看所有部门')
+        await matcher.send("🤔 缇安没找到这个部门哦～输入「缇安 部门列表」看看所有部门名称吧！")
+        return
 
     bot = nonebot.get_bot()
     nodes = build_forward_nodes(articles, int(event.self_id))
+
+    if time_range:
+        await matcher.send("💝 缇安筛出该时段该部门公告啦～")
+    else:
+        await matcher.send("💌 缇安为你搬来该部门最新公告～")
+
     await _send_forward(bot, event, nodes)
 
 
-async def _handle_stat(matcher):
-    """显示数据库统计。"""
-    total = Article.select().count()
-    with_dept = Article.select().where(
-        Article.source_dept.is_null(False), Article.source_dept != ""
-    ).count()
-    with_cat = Article.select().where(Article.category.is_null(False)).count()
-    with_time = Article.select().where(Article.published_at.is_null(False)).count()
-    sep = "━" * 16
-    await matcher.finish(
-        f"📊 数据库统计\n{sep}\n"
-        f"总文章数: {total}\n"
-        f"有部门信息: {with_dept}\n"
-        f"有分类信息: {with_cat}\n"
-        f"有时间信息: {with_time}\n{sep}"
-    )
-
-
-async def _handle_subscribe(matcher, event: MessageEvent, arg_text: str):
+async def _handle_subscribe(event: MessageEvent, arg_text: str):
     if not arg_text:
-        await matcher.finish(
-            "用法:\n"
-            "  /today sub category 公告公示\n"
-            "  /today sub keyword <关键词>"
-        )
+        await matcher.send("😵 用法：缇安 订阅 分类 公告公示\n或：缇安 订阅 关键词 招聘")
+        return
 
     parts = arg_text.split(maxsplit=1)
     sub_type = parts[0]
+    value = parts[1] if len(parts) > 1 else ""
     target_type, target_id = _get_target(event)
 
-    if sub_type == "category":
-        value = parts[1] if len(parts) > 1 else ""
+    if sub_type == "分类":
         if value not in VALID_CATEGORIES:
-            await matcher.finish(f"可选分类: {', '.join(VALID_CATEGORIES)}")
+            await matcher.send(f"😵 可选分类: {', '.join(VALID_CATEGORIES)}")
+            return
         Subscription.insert(
             target_type=target_type,
             target_id=target_id,
             sub_type="category",
             sub_value=value,
         ).on_conflict_ignore().execute()
-        await matcher.finish(f"已订阅分类: {value}")
+        await matcher.send("💖 缇安已帮你订阅！新消息第一时间敲你门哦～")
 
-    elif sub_type == "keyword":
-        value = parts[1] if len(parts) > 1 else ""
+    elif sub_type == "关键词":
         if not value:
-            await matcher.finish("请输入要订阅的关键词")
+            await matcher.send("😵 缇安需要关键词哦～试试：缇安 订阅 关键词 招聘")
+            return
         Subscription.insert(
             target_type=target_type,
             target_id=target_id,
             sub_type="keyword",
             sub_value=value,
         ).on_conflict_ignore().execute()
-        await matcher.finish(f"已订阅关键词: {value}")
+        await matcher.send("💓 缇安已帮你订阅关键词！有新公告立刻喊你～")
 
     else:
-        await matcher.finish("订阅类型: category（分类）或 keyword（关键词）")
+        await matcher.send("😵 订阅类型只能是「分类」或「关键词」哦～")
 
 
-async def _handle_unsubscribe(matcher, event: MessageEvent, arg_text: str):
-    if not arg_text or not arg_text.isdigit():
-        await matcher.finish("用法: /today unsub <序号>\n使用 /today list 查看订阅列表")
+async def _handle_unsubscribe(event: MessageEvent, arg_text: str):
+    if not arg_text or not arg_text.strip().isdigit():
+        await matcher.send("😣 用法：缇安 取消订阅 序号\n输入「缇安 我的订阅」查看序号")
+        return
 
-    idx = int(arg_text)
+    idx = int(arg_text.strip())
     target_type, target_id = _get_target(event)
     subs = list(
         Subscription.select()
@@ -253,14 +295,15 @@ async def _handle_unsubscribe(matcher, event: MessageEvent, arg_text: str):
         .order_by(Subscription.id)
     )
     if idx < 1 or idx > len(subs):
-        await matcher.finish(f"序号无效，共有 {len(subs)} 条订阅")
+        await matcher.send("😣 这个订阅序号不对哦～输入「缇安 我的订阅」看看正确的序号吧！")
+        return
 
     sub = subs[idx - 1]
     sub.delete_instance()
-    await matcher.finish(f"已取消订阅 #{idx}: [{sub.sub_type}] {sub.sub_value}")
+    await matcher.send(f"💔 缇安已帮你取消订阅 #{idx} [{sub.sub_value}]～后悔了随时再找我哦！")
 
 
-async def _handle_list(matcher, event: MessageEvent):
+async def _handle_list(event: MessageEvent):
     target_type, target_id = _get_target(event)
     subs = list(
         Subscription.select()
@@ -271,46 +314,64 @@ async def _handle_list(matcher, event: MessageEvent):
         .order_by(Subscription.id)
     )
     if not subs:
-        await matcher.finish("暂无订阅。使用 /today sub 添加订阅。")
+        await matcher.send("📋 缇安还没帮你记任何订阅哦～输入「缇安 订阅」开始吧！")
+        return
 
-    lines = ["📋 我的订阅列表", "━" * 16]
+    lines = ["📋 缇安帮你记的订阅清单哦～", "━" * 16]
     for i, s in enumerate(subs, 1):
         type_label = "分类" if s.sub_type == "category" else "关键词"
         lines.append(f"  {i}. [{type_label}] {s.sub_value}")
     lines.append("━" * 16)
-    lines.append("/today unsub <序号> 取消订阅")
-    await matcher.finish("\n".join(lines))
+    lines.append("输入「缇安 取消订阅 序号」取消")
+    await matcher.send("\n".join(lines))
 
 
-async def _handle_scrape(matcher, event: MessageEvent):
-    """手动触发爬取。"""
-    await matcher.send("开始爬取最新文章...")
+async def _handle_stat():
+    total = Article.select().count()
+    with_dept = Article.select().where(
+        Article.source_dept.is_null(False), Article.source_dept != ""
+    ).count()
+    with_cat = Article.select().where(Article.category.is_null(False)).count()
+    with_time = Article.select().where(Article.published_at.is_null(False)).count()
+    sep = "━" * 16
+    await matcher.send(
+        f"📊 缇安整理的数据库小报告来啦～\n{sep}\n"
+        f"总文章数: {total}\n"
+        f"有部门信息: {with_dept}\n"
+        f"有分类信息: {with_cat}\n"
+        f"有时间信息: {with_time}\n{sep}"
+    )
+
+
+async def _handle_scrape():
+    await matcher.send("🚀 缇安冲去爬最新文章啦！")
     try:
         from . import scrape_and_push
         await scrape_and_push()
         total = Article.select().count()
-        await matcher.finish(f"爬取完成！数据库共 {total} 条文章。")
+        await matcher.send(f"✅ 爬取完成！数据已更新～数据库共 {total} 条文章。")
     except Exception as e:
-        await matcher.finish(f"爬取出错: {e}")
+        await matcher.send(f"😣 爬取出错了: {e}")
 
 
-async def _handle_help(matcher):
+async def _handle_help():
     sep = "━" * 16
-    await matcher.finish(
-        f"📖 TodayHIT 命令帮助\n{sep}\n"
-        "/today — 最新公告（转发消息卡片）\n"
-        "/today search <关键词> — 搜索（精确优先）\n"
-        "/today search 机电 学院 — AND 搜索\n"
-        "/today search 奖学金|评优 — OR 搜索\n"
-        "/today search re:正则 — 正则搜索\n"
-        "/today search XX --time 24.01.01~24.12.31\n"
-        "/today dept — 查看所有部门\n"
-        "/today dept <部门名> — 按部门筛选\n"
-        "/today stat — 数据库统计\n"
-        "/today scrape — 手动爬取最新文章\n"
-        "/today sub category <分类> — 订阅分类\n"
-        "/today sub keyword <词> — 订阅关键词\n"
-        "/today unsub <序号> — 取消订阅\n"
-        "/today list — 我的订阅\n"
-        "/today help — 此帮助"
+    await matcher.send(
+        f"💡 缇安把所有用法都写在这里啦～随时问我哦！\n{sep}\n"
+        "缇安 — 最新公告\n"
+        "缇安 时间 24.04.01~24.04.30 — 按时间筛选\n"
+        "缇安 搜索 关键词 — 搜索（精确优先）\n"
+        "缇安 搜索 机电 学院 — 同时含两词\n"
+        "缇安 搜索 奖学金/评优 — 含任意一词\n"
+        "缇安 搜索 正则:表达式 — 正则搜索\n"
+        "缇安 搜索 奖学金 时间 24.01.01~24.12.31\n"
+        "缇安 部门列表 — 查看所有部门\n"
+        "缇安 部门 名称 — 按部门筛选\n"
+        "缇安 统计 — 数据库统计\n"
+        "缇安 爬取 — 手动爬取最新文章\n"
+        "缇安 订阅 分类 公告公示 — 订阅分类\n"
+        "缇安 订阅 关键词 招聘 — 订阅关键词\n"
+        "缇安 取消订阅 序号 — 取消订阅\n"
+        "缇安 我的订阅 — 查看订阅\n"
+        "缇安 帮助 — 此帮助"
     )

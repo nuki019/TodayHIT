@@ -66,7 +66,7 @@ def build_push_nodes(articles: list[dict[str, Any]], bot_id: int) -> list[dict]:
             "type": "node",
             "data": {
                 "user_id": str(bot_id),
-                "nickname": "今日哈工大",
+                "nickname": "缇安",
                 "content": [{"type": "text", "data": {"text": text}}],
             },
         })

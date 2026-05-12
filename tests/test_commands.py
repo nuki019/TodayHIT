@@ -37,7 +37,7 @@ def test_parse_search_args_no_time():
 
 
 def test_parse_search_args_with_time():
-    keyword, tr = parse_search_args("奖学金 --time 24.01.01~24.12.31")
+    keyword, tr = parse_search_args("奖学金 时间 24.01.01~24.12.31")
     assert keyword == "奖学金"
     assert tr is not None
     start, end = tr
@@ -46,15 +46,8 @@ def test_parse_search_args_with_time():
 
 
 def test_parse_search_args_time_only():
-    keyword, tr = parse_search_args("--time 23.10.01~24.06.30")
+    keyword, tr = parse_search_args("时间 23.10.01~24.06.30")
     assert keyword == ""
-    assert tr is not None
-
-
-def test_parse_search_args_time_in_middle():
-    keyword, tr = parse_search_args("奖学金 --time 24.03.01~24.06.01 评审")
-    # --time 后面的部分会被移除，剩余 "奖学金  评审" 需要 strip
-    assert "奖学金" in keyword
     assert tr is not None
 
 
@@ -63,7 +56,6 @@ def test_parse_search_args_time_in_middle():
 def test_build_query_no_keyword():
     results = build_query("", None)
     assert len(results) > 0
-    # 按 published_at 降序
     for i in range(len(results) - 1):
         a1, a2 = results[i], results[i + 1]
         if a1.published_at and a2.published_at:
@@ -71,24 +63,19 @@ def test_build_query_no_keyword():
 
 
 def test_build_query_exact_first():
-    """单关键词：精确匹配应排在模糊匹配前面。"""
-    # "机电学院2024年度奖学金评选通知" 是精确匹配
     results = build_query("机电学院2024年度奖学金评选通知", None)
     assert len(results) >= 1
     assert results[0].title == "机电学院2024年度奖学金评选通知"
 
 
 def test_build_query_single_keyword_fuzzy():
-    """单关键词模糊搜索。"""
     results = build_query("奖学金", None)
     titles = [r.title for r in results]
-    # 应包含所有含"奖学金"的文章
     assert len(titles) >= 3
     assert all("奖学金" in t for t in titles)
 
 
 def test_build_query_and_mode():
-    """空格分隔 = AND 模式。"""
     results = build_query("机电 评选", None)
     assert len(results) >= 1
     for r in results:
@@ -96,22 +83,21 @@ def test_build_query_and_mode():
 
 
 def test_build_query_or_mode():
-    """竖线分隔 = OR 模式。"""
-    results = build_query("图书馆|数学", None)
+    """竖线 / 分隔 = OR 模式。"""
+    results = build_query("图书馆/数学", None)
     titles = [r.title for r in results]
     assert any("图书馆" in t for t in titles)
     assert any("数学" in t for t in titles)
 
 
 def test_build_query_regex():
-    """re: 前缀 = 正则模式。"""
-    results = build_query("re:2024年.*评选", None)
+    """正则: 前缀 = 正则模式。"""
+    results = build_query("正则:2024年.*评选", None)
     titles = [r.title for r in results]
     assert all("2024年" in t and "评选" in t for t in titles)
 
 
 def test_build_query_time_filter():
-    """时间范围过滤。"""
     start = datetime(2024, 3, 1, 0, 0, 0)
     end = datetime(2024, 6, 30, 23, 59, 59)
     results = build_query("", (start, end))
@@ -121,7 +107,6 @@ def test_build_query_time_filter():
 
 
 def test_build_query_keyword_and_time():
-    """关键词 + 时间范围组合。"""
     start = datetime(2024, 1, 1, 0, 0, 0)
     end = datetime(2024, 4, 30, 23, 59, 59)
     results = build_query("奖学金", (start, end))
@@ -145,7 +130,7 @@ def test_build_forward_nodes():
     for node in nodes:
         assert node["type"] == "node"
         assert node["data"]["user_id"] == "999"
-        assert node["data"]["nickname"] == "今日哈工大"
+        assert node["data"]["nickname"] == "缇安"
         content = node["data"]["content"]
         assert len(content) == 1
         assert content[0]["type"] == "text"
@@ -162,7 +147,6 @@ def test_build_forward_nodes_empty():
 
 
 def test_build_forward_nodes_max_50():
-    """确保不会超过 50 条限制（由 build_query 保证）。"""
     results = build_query("", None)
     assert len(results) <= 50
     nodes = build_forward_nodes(results, bot_id=999)

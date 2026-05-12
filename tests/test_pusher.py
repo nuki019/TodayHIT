@@ -51,7 +51,7 @@ def test_build_push_nodes():
     assert len(nodes) == 2
     assert nodes[0]["type"] == "node"
     assert nodes[0]["data"]["user_id"] == "123456"
-    assert nodes[0]["data"]["nickname"] == "今日哈工大"
+    assert nodes[0]["data"]["nickname"] == "缇安"
     # content 中应包含标题
     content = nodes[0]["data"]["content"]
     assert any("公告一" in seg["data"]["text"] for seg in content if seg["type"] == "text")

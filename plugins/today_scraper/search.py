@@ -13,7 +13,7 @@ from .models import Article
 MAX_RESULTS = 50
 
 _TIME_RE = re.compile(
-    r"--time\s+(\d{2})\.(\d{2})\.(\d{2})~(\d{2})\.(\d{2})\.(\d{2})"
+    r"时间\s+(\d{2})\.(\d{2})\.(\d{2})~(\d{2})\.(\d{2})\.(\d{2})"
 )
 
 
@@ -58,7 +58,7 @@ def build_query(
             query = query.where(Article.published_at.between(start, end))
         return list(query)
 
-    if keyword.startswith("re:"):
+    if keyword.startswith("正则:"):
         pattern = keyword[3:].strip()
         query = (
             Article.select()
@@ -66,8 +66,8 @@ def build_query(
             .order_by(Article.published_at.desc(nulls="LAST"), Article.id.desc())
             .limit(limit)
         )
-    elif "|" in keyword:
-        terms = [t.strip() for t in keyword.split("|") if t.strip()]
+    elif "/" in keyword and not keyword.startswith("正则:"):
+        terms = [t.strip() for t in keyword.split("/") if t.strip()]
         if len(terms) == 1:
             cond = Article.title.contains(terms[0])
         else:
@@ -135,7 +135,7 @@ def build_forward_nodes(articles: list[Any], bot_id: int) -> list[dict]:
             "type": "node",
             "data": {
                 "user_id": str(bot_id),
-                "nickname": "今日哈工大",
+                "nickname": "缇安",
                 "content": [{"type": "text", "data": {"text": text}}],
             },
         })
