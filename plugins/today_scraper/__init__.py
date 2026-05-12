@@ -85,10 +85,16 @@ if _NONEBOT_READY:
                         url=a["url"],
                         source_dept=a.get("source_dept"),
                         category=cat_name,
+                        published_at=a.get("published_at"),
                     ).on_conflict_ignore().execute()
                     Article.update(category=cat_name).where(
                         Article.id == a["id"], Article.category.is_null()
                     ).execute()
+                    # 补充缺失的时间信息（从 URL 日期提取）
+                    if a.get("published_at"):
+                        Article.update(published_at=a["published_at"]).where(
+                            Article.id == a["id"], Article.published_at.is_null()
+                        ).execute()
             except Exception as e:
                 nonebot.logger.warning(f"分类页 {cat_name} 采集失败: {e}")
 

@@ -70,10 +70,14 @@ def test_parse_rss_empty():
 
 
 def test_parse_category_page_extracts_articles():
+    from datetime import datetime
+
     articles = parse_category_page(CATEGORY_HTML, "https://today.hit.edu.cn")
     assert len(articles) == 2
     assert articles[0]["id"] == 129723
     assert articles[0]["source_dept"] == "能源学院"
+    assert articles[0]["published_at"] == datetime(2026, 5, 10)
+    assert articles[1]["published_at"] == datetime(2026, 5, 9)
 
 
 def test_parse_search_page_extracts_results():

@@ -3,6 +3,7 @@ import asyncio
 import re
 import sys
 import os
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -28,10 +29,14 @@ def parse_list_page(html: str, category: str) -> list[dict]:
         if not link:
             continue
         href = link.get("href", "")
-        match = re.search(r"/article/\d{4}/\d{2}/\d{2}/(\d+)", href)
+        match = re.search(r"/article/(\d{4})/(\d{2})/(\d{2})/(\d+)", href)
         if not match:
             continue
-        article_id = int(match.group(1))
+        article_id = int(match.group(4))
+        try:
+            published_at = datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except ValueError:
+            published_at = None
         title = link.get_text(strip=True)
         url = BASE_URL + href if href.startswith("/") else href
 
@@ -50,6 +55,7 @@ def parse_list_page(html: str, category: str) -> list[dict]:
             "url": url,
             "source_dept": dept,
             "category": category,
+            "published_at": published_at,
         })
     return articles
 
@@ -97,11 +103,13 @@ async def scrape_category(client: httpx.AsyncClient, cat_id: int, cat_name: str)
                     url=a["url"],
                     source_dept=a.get("source_dept"),
                     category=a["category"],
+                    published_at=a.get("published_at"),
                 ).on_conflict(
                     conflict_target=[Article.id],
                     update={
                         Article.source_dept: a.get("source_dept") or Article.source_dept,
                         Article.category: a["category"],
+                        Article.published_at: a.get("published_at") or Article.published_at,
                     },
                 ).execute()
                 new_count += 1

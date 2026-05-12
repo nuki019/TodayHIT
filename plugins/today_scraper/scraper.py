@@ -51,10 +51,14 @@ def parse_category_page(html: str, base_url: str) -> list[dict[str, Any]]:
         if not link_tag:
             continue
         href = link_tag.get("href", "")
-        match = re.search(r"/article/\d{4}/\d{2}/\d{2}/(\d+)", href)
+        match = re.search(r"/article/(\d{4})/(\d{2})/(\d{2})/(\d+)", href)
         if not match:
             continue
-        article_id = int(match.group(1))
+        article_id = int(match.group(4))
+        try:
+            published_at = datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except ValueError:
+            published_at = None
         title = link_tag.get_text(strip=True)
         dept_tag = row.select_one(
             ".field--name-field-department, .views-field-field-department"
@@ -68,7 +72,7 @@ def parse_category_page(html: str, base_url: str) -> list[dict[str, Any]]:
                 "url": url,
                 "source_dept": source_dept,
                 "category": None,
-                "published_at": None,
+                "published_at": published_at,
             }
         )
     return articles
