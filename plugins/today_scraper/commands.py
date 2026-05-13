@@ -20,12 +20,18 @@ except Exception:
 def _is_admin(event: MessageEvent) -> bool:
     return int(event.user_id) in _ADMIN_QQS
 
+
 # ── helpers ─────────────────────────────────────────────
 
 def _get_target(event: MessageEvent) -> tuple[str, str]:
     if isinstance(event, GroupMessageEvent):
         return "group", str(event.group_id)
     return "private", str(event.user_id)
+
+
+async def _send_msg(bot, event: MessageEvent, text: str):
+    """直接通过 bot 发送文本消息。"""
+    await bot.send(event, text)
 
 
 async def _send_forward(bot, event: MessageEvent, nodes: list[dict]):
@@ -73,14 +79,7 @@ matcher = on_keyword("缇安", priority=10, block=True)
 
 @matcher.handle()
 async def handle_tian(event: MessageEvent):
-    try:
-        await _handle_tian_inner(event)
-    except Exception as e:
-        nonebot.logger.error(f"缇安命令处理出错: {e}", exc_info=True)
-        await matcher.send(f"😣 缇安出了点问题: {e}")
-
-
-async def _handle_tian_inner(event: MessageEvent):
+    bot = nonebot.get_bot()
     raw = event.get_plaintext()
     idx = raw.find("缇安")
     if idx == -1:
@@ -100,128 +99,129 @@ async def _handle_tian_inner(event: MessageEvent):
         if not articles:
             articles = list(Article.select().order_by(Article.id.desc()).limit(MAX_RESULTS))
         if not articles:
-            await matcher.finish("🥺 缇安还没爬到任何公告呢～稍后再试试吧！")
-        bot = nonebot.get_bot()
+            await bot.send(event, "🥺 缇安还没爬到任何公告呢～稍后再试试吧！")
+            return
         nodes = build_forward_nodes(articles, int(event.self_id))
-        # 在转发卡片前发送前缀消息
-        await matcher.send("💫 缇安开门找到最新公告啦！")
+        await bot.send(event, "💫 缇安开门找到最新公告啦！")
         await _send_forward(bot, event, nodes)
         return
 
     subcmd, rest = _parse_args(arg_text)
 
-    # ── 搜索 ──
-    if subcmd == "搜索":
-        await _handle_search(event, rest)
+    try:
+        # ── 搜索 ──
+        if subcmd == "搜索":
+            await _handle_search(bot, event, rest)
 
-    # ── 时间 ──
-    elif subcmd == "时间":
-        await _handle_time(event, rest)
+        # ── 时间 ──
+        elif subcmd == "时间":
+            await _handle_time(bot, event, rest)
 
-    # ── 部门列表 ──
-    elif subcmd == "部门列表":
-        await _handle_dept_list()
+        # ── 部门列表 ──
+        elif subcmd == "部门列表":
+            await _handle_dept_list(bot, event)
 
-    # ── 部门 ──
-    elif subcmd == "部门":
-        await _handle_dept(event, rest)
+        # ── 部门 ──
+        elif subcmd == "部门":
+            await _handle_dept(bot, event, rest)
 
-    # ── 订阅 ──
-    elif subcmd == "订阅":
-        await _handle_subscribe(event, rest)
+        # ── 订阅 ──
+        elif subcmd == "订阅":
+            await _handle_subscribe(bot, event, rest)
 
-    # ── 取消订阅 ──
-    elif subcmd == "取消订阅":
-        await _handle_unsubscribe(event, rest)
+        # ── 取消订阅 ──
+        elif subcmd == "取消订阅":
+            await _handle_unsubscribe(bot, event, rest)
 
-    # ── 我的订阅 ──
-    elif subcmd == "我的订阅":
-        await _handle_list(event)
+        # ── 我的订阅 ──
+        elif subcmd == "我的订阅":
+            await _handle_list(bot, event)
 
-    # ── 统计 ──
-    elif subcmd == "统计":
-        await _handle_stat()
+        # ── 统计 ──
+        elif subcmd == "统计":
+            await _handle_stat(bot, event)
 
-    # ── 找群友 ──
-    elif subcmd == "找群友":
-        await _handle_find_member(event)
+        # ── 找群友 ──
+        elif subcmd == "找群友":
+            await _handle_find_member(bot, event)
 
-    # ── 强制推送（管理员） ──
-    elif subcmd == "强制推送":
-        if not _is_admin(event):
-            await matcher.send("🔒 这个指令只有缇安的管理员才能用哦～")
-            return
-        await _handle_force_push()
+        # ── 强制推送（管理员） ──
+        elif subcmd == "强制推送":
+            if not _is_admin(event):
+                await bot.send(event, "🔒 这个指令只有缇安的管理员才能用哦～")
+                return
+            await _handle_force_push(bot, event)
 
-    # ── 强制爬取（管理员） ──
-    elif subcmd == "强制爬取":
-        if not _is_admin(event):
-            await matcher.send("🔒 这个指令只有缇安的管理员才能用哦～")
-            return
-        await _handle_force_scrape()
+        # ── 强制爬取（管理员） ──
+        elif subcmd == "强制爬取":
+            if not _is_admin(event):
+                await bot.send(event, "🔒 这个指令只有缇安的管理员才能用哦～")
+                return
+            await _handle_force_scrape(bot, event)
 
-    # ── 帮助 ──
-    elif subcmd == "帮助":
-        await _handle_help()
+        # ── 帮助 ──
+        elif subcmd == "帮助":
+            await _handle_help(bot, event)
 
-    else:
-        await matcher.send("😵 缇安没听懂这个指令哦～输入「缇安 帮助」看看所有用法吧！")
+        else:
+            await bot.send(event, "😵 缇安没听懂这个指令哦～输入「缇安 帮助」看看所有用法吧！")
+
+    except Exception as e:
+        nonebot.logger.error(f"缇安命令出错: {e}", exc_info=True)
+        await bot.send(event, f"😣 缇安出了点问题: {e}")
 
 
 # ── 子命令实现 ──────────────────────────────────────────
 
-async def _handle_search(event: MessageEvent, arg_text: str):
+async def _handle_search(bot, event: MessageEvent, arg_text: str):
     if not arg_text:
-        await matcher.send("😵 缇安没听懂这个指令哦～试试：缇安 搜索 奖学金")
+        await bot.send(event, "😵 缇安没听懂这个指令哦～试试：缇安 搜索 奖学金")
         return
 
     keyword, time_range = parse_search_args(arg_text)
     if not keyword and not time_range:
-        await matcher.send("🥺 缇安需要关键词才能搜索哦～")
+        await bot.send(event, "🥺 缇安需要关键词才能搜索哦～")
         return
 
     articles = build_query(keyword, time_range)
 
     if not articles:
-        await matcher.send("🥺 缇安翻遍了所有百界门，都没找到符合条件的公告呢～换个关键词试试吧！")
+        await bot.send(event, "🥺 缇安翻遍了所有百界门，都没找到符合条件的公告呢～换个关键词试试吧！")
         return
 
-    bot = nonebot.get_bot()
     nodes = build_forward_nodes(articles, int(event.self_id))
 
-    # 根据搜索类型发送不同前缀
     if time_range and keyword:
-        await matcher.send("🎡 缇安帮你锁定相关公告啦～")
+        await bot.send(event, "🎡 缇安帮你锁定相关公告啦～")
     elif keyword.startswith("正则:"):
-        await matcher.send("🔍 缇安用魔法正则帮你筛出符合条件公告咯～")
+        await bot.send(event, "🔍 缇安用魔法正则帮你筛出符合条件公告咯～")
     elif "/" in keyword:
-        await matcher.send("🌸 缇安挖到含任意一词的公告啦～")
+        await bot.send(event, "🌸 缇安挖到含任意一词的公告啦～")
     elif len(keyword.split()) > 1:
-        await matcher.send("🎐 缇安精准锁定同时含这两个词的公告哦～")
+        await bot.send(event, "🎐 缇安精准锁定同时含这两个词的公告哦～")
     else:
-        await matcher.send("🎀 缇安翻遍百界门找到相关公告啦～")
+        await bot.send(event, "🎀 缇安翻遍百界门找到相关公告啦～")
 
     await _send_forward(bot, event, nodes)
 
 
-async def _handle_time(event: MessageEvent, arg_text: str):
+async def _handle_time(bot, event: MessageEvent, arg_text: str):
     keyword, time_range = parse_search_args("时间 " + arg_text)
     if not time_range:
-        await matcher.send("😵 时间格式不对哦～试试：缇安 时间 24.04.01~24.04.30")
+        await bot.send(event, "😵 时间格式不对哦～试试：缇安 时间 24.04.01~24.04.30")
         return
 
     articles = build_query("", time_range)
     if not articles:
-        await matcher.send("🥺 缇安翻遍了所有百界门，该时间段没有公告呢～换个时间试试吧！")
+        await bot.send(event, "🥺 缇安翻遍了所有百界门，该时间段没有公告呢～换个时间试试吧！")
         return
 
-    bot = nonebot.get_bot()
     nodes = build_forward_nodes(articles, int(event.self_id))
-    await matcher.send("✨ 缇安帮你筛选出该时间段公告咯～")
+    await bot.send(event, "✨ 缇安帮你筛选出该时间段公告咯～")
     await _send_forward(bot, event, nodes)
 
 
-async def _handle_dept_list():
+async def _handle_dept_list(bot, event: MessageEvent):
     depts = (
         Article.select(Article.source_dept)
         .where(Article.source_dept.is_null(False), Article.source_dept != "")
@@ -230,7 +230,7 @@ async def _handle_dept_list():
     )
     dept_list = [d.source_dept for d in depts if d.source_dept]
     if not dept_list:
-        await matcher.send("🥺 缇安还没收集到部门数据呢～")
+        await bot.send(event, "🥺 缇安还没收集到部门数据呢～")
         return
     lines = ["📋 缇安整理好的部门列表来啦～", "━" * 16]
     for d in dept_list[:30]:
@@ -240,12 +240,12 @@ async def _handle_dept_list():
         lines.append(f"  ... 共 {len(dept_list)} 个部门")
     lines.append("━" * 16)
     lines.append("输入「缇安 部门 名称」查看该部门公告")
-    await matcher.send("\n".join(lines))
+    await bot.send(event, "\n".join(lines))
 
 
-async def _handle_dept(event: MessageEvent, arg_text: str):
+async def _handle_dept(bot, event: MessageEvent, arg_text: str):
     if not arg_text:
-        await matcher.send("😵 缇安需要部门名称哦～试试：缇安 部门 机电学院")
+        await bot.send(event, "😵 缇安需要部门名称哦～试试：缇安 部门 机电学院")
         return
 
     keyword, time_range = parse_search_args(arg_text)
@@ -263,23 +263,22 @@ async def _handle_dept(event: MessageEvent, arg_text: str):
 
     articles = list(query)
     if not articles:
-        await matcher.send("🤔 缇安没找到这个部门哦～输入「缇安 部门列表」看看所有部门名称吧！")
+        await bot.send(event, "🤔 缇安没找到这个部门哦～输入「缇安 部门列表」看看所有部门名称吧！")
         return
 
-    bot = nonebot.get_bot()
     nodes = build_forward_nodes(articles, int(event.self_id))
 
     if time_range:
-        await matcher.send("💝 缇安筛出该时段该部门公告啦～")
+        await bot.send(event, "💝 缇安筛出该时段该部门公告啦～")
     else:
-        await matcher.send("💌 缇安为你搬来该部门最新公告～")
+        await bot.send(event, "💌 缇安为你搬来该部门最新公告～")
 
     await _send_forward(bot, event, nodes)
 
 
-async def _handle_subscribe(event: MessageEvent, arg_text: str):
+async def _handle_subscribe(bot, event: MessageEvent, arg_text: str):
     if not arg_text:
-        await matcher.send("😵 用法：缇安 订阅 分类 公告公示\n或：缇安 订阅 关键词 招聘")
+        await bot.send(event, "😵 用法：缇安 订阅 分类 公告公示\n或：缇安 订阅 关键词 招聘")
         return
 
     parts = arg_text.split(maxsplit=1)
@@ -289,7 +288,7 @@ async def _handle_subscribe(event: MessageEvent, arg_text: str):
 
     if sub_type == "分类":
         if value not in VALID_CATEGORIES:
-            await matcher.send(f"😵 可选分类: {', '.join(VALID_CATEGORIES)}")
+            await bot.send(event, f"😵 可选分类: {', '.join(VALID_CATEGORIES)}")
             return
         Subscription.insert(
             target_type=target_type,
@@ -297,11 +296,11 @@ async def _handle_subscribe(event: MessageEvent, arg_text: str):
             sub_type="category",
             sub_value=value,
         ).on_conflict_ignore().execute()
-        await matcher.send("💖 缇安已帮你订阅！新消息第一时间敲你门哦～")
+        await bot.send(event, "💖 缇安已帮你订阅！新消息第一时间敲你门哦～")
 
     elif sub_type == "关键词":
         if not value:
-            await matcher.send("😵 缇安需要关键词哦～试试：缇安 订阅 关键词 招聘")
+            await bot.send(event, "😵 缇安需要关键词哦～试试：缇安 订阅 关键词 招聘")
             return
         Subscription.insert(
             target_type=target_type,
@@ -309,15 +308,15 @@ async def _handle_subscribe(event: MessageEvent, arg_text: str):
             sub_type="keyword",
             sub_value=value,
         ).on_conflict_ignore().execute()
-        await matcher.send("💓 缇安已帮你订阅关键词！有新公告立刻喊你～")
+        await bot.send(event, "💓 缇安已帮你订阅关键词！有新公告立刻喊你～")
 
     else:
-        await matcher.send("😵 订阅类型只能是「分类」或「关键词」哦～")
+        await bot.send(event, "😵 订阅类型只能是「分类」或「关键词」哦～")
 
 
-async def _handle_unsubscribe(event: MessageEvent, arg_text: str):
+async def _handle_unsubscribe(bot, event: MessageEvent, arg_text: str):
     if not arg_text or not arg_text.strip().isdigit():
-        await matcher.send("😣 用法：缇安 取消订阅 序号\n输入「缇安 我的订阅」查看序号")
+        await bot.send(event, "😣 用法：缇安 取消订阅 序号\n输入「缇安 我的订阅」查看序号")
         return
 
     idx = int(arg_text.strip())
@@ -331,15 +330,15 @@ async def _handle_unsubscribe(event: MessageEvent, arg_text: str):
         .order_by(Subscription.id)
     )
     if idx < 1 or idx > len(subs):
-        await matcher.send("😣 这个订阅序号不对哦～输入「缇安 我的订阅」看看正确的序号吧！")
+        await bot.send(event, "😣 这个订阅序号不对哦～输入「缇安 我的订阅」看看正确的序号吧！")
         return
 
     sub = subs[idx - 1]
     sub.delete_instance()
-    await matcher.send(f"💔 缇安已帮你取消订阅 #{idx} [{sub.sub_value}]～后悔了随时再找我哦！")
+    await bot.send(event, f"💔 缇安已帮你取消订阅 #{idx} [{sub.sub_value}]～后悔了随时再找我哦！")
 
 
-async def _handle_list(event: MessageEvent):
+async def _handle_list(bot, event: MessageEvent):
     target_type, target_id = _get_target(event)
     subs = list(
         Subscription.select()
@@ -350,7 +349,7 @@ async def _handle_list(event: MessageEvent):
         .order_by(Subscription.id)
     )
     if not subs:
-        await matcher.send("📋 缇安还没帮你记任何订阅哦～输入「缇安 订阅」开始吧！")
+        await bot.send(event, "📋 缇安还没帮你记任何订阅哦～输入「缇安 订阅」开始吧！")
         return
 
     lines = ["📋 缇安帮你记的订阅清单哦～", "━" * 16]
@@ -359,10 +358,10 @@ async def _handle_list(event: MessageEvent):
         lines.append(f"  {i}. [{type_label}] {s.sub_value}")
     lines.append("━" * 16)
     lines.append("输入「缇安 取消订阅 序号」取消")
-    await matcher.send("\n".join(lines))
+    await bot.send(event, "\n".join(lines))
 
 
-async def _handle_stat():
+async def _handle_stat(bot, event: MessageEvent):
     total = Article.select().count()
     with_dept = Article.select().where(
         Article.source_dept.is_null(False), Article.source_dept != ""
@@ -370,7 +369,8 @@ async def _handle_stat():
     with_cat = Article.select().where(Article.category.is_null(False)).count()
     with_time = Article.select().where(Article.published_at.is_null(False)).count()
     sep = "━" * 16
-    await matcher.send(
+    await bot.send(
+        event,
         f"📊 缇安整理的数据库小报告来啦～\n{sep}\n"
         f"总文章数: {total}\n"
         f"有部门信息: {with_dept}\n"
@@ -379,10 +379,10 @@ async def _handle_stat():
     )
 
 
-async def _handle_find_member(event: MessageEvent):
+async def _handle_find_member(bot, event: MessageEvent):
     """找群友：按发言次数加权随机抽取群成员。"""
     if not isinstance(event, GroupMessageEvent):
-        await matcher.send("😵 缇安只能在群里找群友哦～")
+        await bot.send(event, "😵 缇安只能在群里找群友哦～")
         return
 
     group_id = str(event.group_id)
@@ -391,7 +391,7 @@ async def _handle_find_member(event: MessageEvent):
         .where(GroupMessage.group_id == group_id, GroupMessage.message_count > 0)
     )
     if not records:
-        await matcher.send("🥺 缇安还没记录到群友的发言呢～让大家多聊聊天吧！")
+        await bot.send(event, "🥺 缇安还没记录到群友的发言呢～让大家多聊聊天吧！")
         return
 
     weights = [r.message_count for r in records]
@@ -400,41 +400,38 @@ async def _handle_find_member(event: MessageEvent):
     display_name = chosen.last_nickname or f"QQ:{chosen.user_id}"
     avatar_url = f"https://q.qlogo.cn/headimg_dl?dst_uin={chosen.user_id}&spec=2&img_type=jpg"
 
-    bot = nonebot.get_bot()
-    try:
-        await bot.send(event, f"🌀 缇安为你开启百界门找到了 {display_name}！")
-        await bot.send(event, MessageSegment.image(avatar_url))
-    except Exception:
-        await bot.send(event, f"🌀 缇安为你开启百界门找到了 {display_name}！(头像加载失败)")
+    await bot.send(event, f"🌀 缇安为你开启百界门找到了 {display_name}！")
+    await bot.send(event, MessageSegment.image(avatar_url))
 
 
-async def _handle_force_push():
+async def _handle_force_push(bot, event: MessageEvent):
     """管理员强制推送：爬取 + 广播所有群 + 私聊订阅。"""
-    await matcher.send("🚀 缇安开始强制推送！")
+    await bot.send(event, "🚀 缇安开始强制推送！")
     try:
         from . import admin_force_push
         await admin_force_push()
         total = Article.select().count()
-        await matcher.send(f"✅ 强制推送完成！数据库共 {total} 条文章。")
+        await bot.send(event, f"✅ 强制推送完成！数据库共 {total} 条文章。")
     except Exception as e:
-        await matcher.send(f"😣 强制推送出错: {e}")
+        await bot.send(event, f"😣 强制推送出错: {e}")
 
 
-async def _handle_force_scrape():
+async def _handle_force_scrape(bot, event: MessageEvent):
     """管理员强制爬取：仅爬取不推送。"""
-    await matcher.send("🚀 缇安冲去爬最新文章啦！")
+    await bot.send(event, "🚀 缇安冲去爬最新文章啦！")
     try:
         from . import admin_force_scrape
         count = await admin_force_scrape()
         total = Article.select().count()
-        await matcher.send(f"✅ 爬取完成！新增 {count} 条，数据库共 {total} 条文章。")
+        await bot.send(event, f"✅ 爬取完成！新增 {count} 条，数据库共 {total} 条文章。")
     except Exception as e:
-        await matcher.send(f"😣 爬取出错了: {e}")
+        await bot.send(event, f"😣 爬取出错了: {e}")
 
 
-async def _handle_help():
+async def _handle_help(bot, event: MessageEvent):
     sep = "━" * 16
-    await matcher.send(
+    await bot.send(
+        event,
         f"💡 缇安把所有用法都写在这里啦～随时问我哦！\n{sep}\n"
         "缇安 — 最新公告\n"
         "缇安 时间 24.04.01~24.04.30 — 按时间筛选\n"
