@@ -400,8 +400,25 @@ async def _handle_find_member(bot, event: MessageEvent):
     display_name = chosen.last_nickname or f"QQ:{chosen.user_id}"
     avatar_url = f"https://q.qlogo.cn/headimg_dl?dst_uin={chosen.user_id}&spec=2&img_type=jpg"
 
-    await bot.send(event, f"🌀 缇安为你开启百界门找到了 {display_name}！")
-    await bot.send(event, MessageSegment.image(avatar_url))
+    # 发送文字
+    try:
+        await bot.call_api(
+            "send_group_msg",
+            group_id=int(event.group_id),
+            message=f"🌀 缇安为你开启百界门找到了 {display_name}！",
+        )
+    except Exception as e:
+        nonebot.logger.warning(f"找群友文字发送失败: {e}")
+
+    # 发送头像（失败不影响后续使用）
+    try:
+        await bot.call_api(
+            "send_group_msg",
+            group_id=int(event.group_id),
+            message=MessageSegment.image(avatar_url),
+        )
+    except Exception as e:
+        nonebot.logger.warning(f"找群友头像发送失败: {e}")
 
 
 async def _handle_force_push(bot, event: MessageEvent):
