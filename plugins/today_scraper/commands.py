@@ -2,7 +2,7 @@ import random
 
 import nonebot
 from nonebot import on_keyword
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent, MessageSegment
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageEvent, MessageSegment
 
 from .config import TodayHITConfig
 from .models import Article, GroupMessage, Subscription
@@ -418,26 +418,25 @@ async def _handle_find_member(bot, event: MessageEvent):
     if not display_name:
         display_name = f"QQ:{chosen.user_id}"
 
-    # 发送文字
+    # 合并文字+头像为一条消息
+    avatar_url = f"https://q1.qlogo.cn/g?b=qq&nk={chosen.user_id}&s=640"
+    msg = Message([
+        MessageSegment.text(f"🌀 缇安为你开启百界门找到了 {display_name}！\n"),
+        MessageSegment.image(avatar_url),
+    ])
     try:
+        await bot.call_api(
+            "send_group_msg",
+            group_id=int(group_id),
+            message=msg,
+        )
+    except Exception:
+        # 头像加载失败时仅发文字
         await bot.call_api(
             "send_group_msg",
             group_id=int(group_id),
             message=f"🌀 缇安为你开启百界门找到了 {display_name}！",
         )
-    except Exception as e:
-        nonebot.logger.warning(f"找群友文字发送失败: {e}")
-
-    # 发送头像（失败不影响后续使用）
-    avatar_url = f"https://q1.qlogo.cn/g?b=qq&nk={chosen.user_id}&s=640"
-    try:
-        await bot.call_api(
-            "send_group_msg",
-            group_id=int(group_id),
-            message=MessageSegment.image(avatar_url),
-        )
-    except Exception as e:
-        nonebot.logger.warning(f"找群友头像发送失败: {e}")
 
 
 async def _handle_force_push(bot, event: MessageEvent):
