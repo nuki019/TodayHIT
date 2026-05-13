@@ -145,6 +145,10 @@ async def handle_tian(event: MessageEvent):
         elif subcmd == "找群友":
             await _handle_find_member(bot, event)
 
+        # ── 群友排名 ──
+        elif subcmd == "群友排名":
+            await _handle_member_rank(bot, event)
+
         # ── 强制推送（管理员） ──
         elif subcmd == "强制推送":
             if not _is_admin(event):
@@ -422,6 +426,32 @@ async def _handle_find_member(bot, event: MessageEvent):
     await bot.send(event, f"缇安为你开启百界门，找到了：\n🌟{display_name}🌟")
 
 
+async def _handle_member_rank(bot, event: MessageEvent):
+    """管理员查看群友发言排名。"""
+    if not isinstance(event, GroupMessageEvent):
+        await bot.send(event, "😵 这个命令只能在群里用哦～")
+        return
+
+    group_id = str(event.group_id)
+    records = list(
+        GroupMessage.select()
+        .where(GroupMessage.group_id == group_id, GroupMessage.message_count > 0)
+        .order_by(GroupMessage.message_count.desc())
+        .limit(50)
+    )
+    if not records:
+        await bot.send(event, "🥺 缇安还没记录到群友的发言呢～")
+        return
+
+    lines = ["📊 群友发言排名", "━" * 16]
+    for i, r in enumerate(records, 1):
+        name = r.last_nickname or f"QQ:{r.user_id}"
+        lines.append(f"  {i}. {name}: {r.message_count} 条")
+    lines.append("━" * 16)
+    lines.append(f"共 {len(records)} 位群友")
+    await bot.send(event, "\n".join(lines))
+
+
 async def _handle_force_push(bot, event: MessageEvent):
     """管理员强制推送：爬取 + 广播所有群 + 私聊订阅。"""
     await bot.send(event, "🚀 缇安开始强制推送！")
@@ -447,28 +477,33 @@ async def _handle_force_scrape(bot, event: MessageEvent):
 
 
 async def _handle_help(bot, event: MessageEvent):
-    sep = "━" * 16
-    await bot.send(
-        event,
-        f"💡 缇安把所有用法都写在这里啦～随时问我哦！\n{sep}\n"
-        "缇安 — 最新公告\n"
-        "缇安 时间 24.04.01~24.04.30 — 按时间筛选\n"
-        "缇安 搜索 关键词 — 搜索（精确优先）\n"
-        "缇安 搜索 机电 学院 — 同时含两词\n"
-        "缇安 搜索 奖学金/评优 — 含任意一词\n"
-        "缇安 搜索 正则:表达式 — 正则搜索\n"
-        "缇安 搜索 奖学金 时间 24.01.01~24.12.31\n"
-        "缇安 部门列表 — 查看所有部门\n"
-        "缇安 部门 名称 — 按部门筛选\n"
-        "缇安 找群友 — 随机抽群友\n"
-        "缇安 统计 — 数据库统计\n"
-        "缇安 订阅 分类 公告公示 — 订阅分类\n"
-        "缇安 订阅 关键词 招聘 — 订阅关键词\n"
-        "缇安 取消订阅 序号 — 取消订阅\n"
-        "缇安 我的订阅 — 查看订阅\n"
-        "缇安 帮助 — 此帮助\n"
-        f"{sep}\n"
-        "管理员专属:\n"
-        "缇安 强制推送 — 爬取并广播所有群\n"
-        "缇安 强制爬取 — 仅爬取不推送"
-    )
+    bot_id = int(bot.self_id)
+    nodes = [
+        {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
+            {"type": "text", "data": {"text": "💡 缇安使用指南\n\n📌 查询类\n━━━━━━━━━━\n缇安 — 最新公告\n缇安 时间 24.04.01~24.04.30 — 按时间筛选\n缇安 部门列表 — 查看所有部门\n缇安 部门 名称 — 按部门筛选\n缇安 统计 — 数据库统计"}}
+        ]}},
+        {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
+            {"type": "text", "data": {"text": "🔍 搜索类\n━━━━━━━━━━\n缇安 搜索 关键词 — 精确优先搜索\n缇安 搜索 机电 学院 — 同时含两词\n缇安 搜索 奖学金/评优 — 含任意一词\n缇安 搜索 正则:表达式 — 正则搜索\n缇安 搜索 奖学金 时间 24.01.01~24.12.31"}}
+        ]}},
+        {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
+            {"type": "text", "data": {"text": "🔔 订阅类\n━━━━━━━━━━\n缇安 订阅 分类 公告公示 — 订阅分类\n缇安 订阅 关键词 招聘 — 订阅关键词\n缇安 取消订阅 序号 — 取消订阅\n缇安 我的订阅 — 查看订阅"}}
+        ]}},
+        {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
+            {"type": "text", "data": {"text": "🎲 趣味功能\n━━━━━━━━━━\n缇安 找群友 — 随机抽群友\n缇安 帮助 — 查看此帮助"}}
+        ]}},
+    ]
+
+    if _is_admin(event):
+        nodes.append({"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
+            {"type": "text", "data": {"text": "🔧 管理员专属\n━━━━━━━━━━\n缇安 强制推送 — 爬取并广播所有群\n缇安 强制爬取 — 仅爬取不推送\n缇安 群友排名 — 查看发言排行"}}
+        ]}})
+
+    target_type, target_id = _get_target(event)
+    try:
+        if target_type == "group":
+            await bot.call_api("send_group_forward_msg", group_id=int(target_id), messages=nodes)
+        else:
+            await bot.call_api("send_private_forward_msg", user_id=int(target_id), messages=nodes)
+    except Exception as e:
+        nonebot.logger.warning(f"帮助卡片发送失败: {e}")
+        await bot.send(event, "💡 缇安帮助发送失败，请输入「缇安 帮助」重试")
