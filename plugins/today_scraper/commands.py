@@ -86,7 +86,7 @@ async def handle_tian(event: MessageEvent):
         return
     arg_text = raw[idx + len("缇安"):].strip()
 
-    nonebot.logger.info(f"缇安命令: arg_text='{arg_text}'")
+    nonebot.logger.info(f"缇安命令触发: arg_text='{arg_text}', user={event.user_id}")
 
     # ── 无参数：最新公告 ──
     if not arg_text:
