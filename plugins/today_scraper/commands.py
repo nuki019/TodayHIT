@@ -397,24 +397,43 @@ async def _handle_find_member(bot, event: MessageEvent):
     weights = [r.message_count for r in records]
     chosen = random.choices(records, weights=weights, k=1)[0]
 
-    display_name = chosen.last_nickname or f"QQ:{chosen.user_id}"
-    avatar_url = f"https://q.qlogo.cn/headimg_dl?dst_uin={chosen.user_id}&spec=2&img_type=jpg"
+    # 获取昵称：优先用缓存，没有则实时查询
+    display_name = chosen.last_nickname
+    if not display_name:
+        try:
+            info = await bot.call_api(
+                "get_group_member_info",
+                group_id=int(group_id),
+                user_id=int(chosen.user_id),
+            )
+            display_name = info.get("card") or info.get("nickname") or ""
+            # 更新缓存
+            if display_name:
+                GroupMessage.update(last_nickname=display_name).where(
+                    GroupMessage.group_id == group_id,
+                    GroupMessage.user_id == chosen.user_id,
+                ).execute()
+        except Exception:
+            pass
+    if not display_name:
+        display_name = f"QQ:{chosen.user_id}"
 
     # 发送文字
     try:
         await bot.call_api(
             "send_group_msg",
-            group_id=int(event.group_id),
+            group_id=int(group_id),
             message=f"🌀 缇安为你开启百界门找到了 {display_name}！",
         )
     except Exception as e:
         nonebot.logger.warning(f"找群友文字发送失败: {e}")
 
     # 发送头像（失败不影响后续使用）
+    avatar_url = f"https://q1.qlogo.cn/g?b=qq&nk={chosen.user_id}&s=640"
     try:
         await bot.call_api(
             "send_group_msg",
-            group_id=int(event.group_id),
+            group_id=int(group_id),
             message=MessageSegment.image(avatar_url),
         )
     except Exception as e:
