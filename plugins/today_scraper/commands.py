@@ -418,25 +418,8 @@ async def _handle_find_member(bot, event: MessageEvent):
     if not display_name:
         display_name = f"QQ:{chosen.user_id}"
 
-    # 合并文字+头像为一条消息
-    avatar_url = f"https://q1.qlogo.cn/g?b=qq&nk={chosen.user_id}&s=640"
-    msg = Message([
-        MessageSegment.text(f"🌀 缇安为你开启百界门找到了 {display_name}！\n"),
-        MessageSegment.image(avatar_url),
-    ])
-    try:
-        await bot.call_api(
-            "send_group_msg",
-            group_id=int(group_id),
-            message=msg,
-        )
-    except Exception:
-        # 头像加载失败时仅发文字
-        await bot.call_api(
-            "send_group_msg",
-            group_id=int(group_id),
-            message=f"🌀 缇安为你开启百界门找到了 {display_name}！",
-        )
+    # 发送结果
+    await bot.send(event, f"缇安为你开启百界门，找到了：\n🌟{display_name}🌟")
 
 
 async def _handle_force_push(bot, event: MessageEvent):
