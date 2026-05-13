@@ -73,12 +73,21 @@ matcher = on_keyword("缇安", priority=10, block=True)
 
 @matcher.handle()
 async def handle_tian(event: MessageEvent):
-    # 提取"缇安"之后的文本
+    try:
+        await _handle_tian_inner(event)
+    except Exception as e:
+        nonebot.logger.error(f"缇安命令处理出错: {e}", exc_info=True)
+        await matcher.send(f"😣 缇安出了点问题: {e}")
+
+
+async def _handle_tian_inner(event: MessageEvent):
     raw = event.get_plaintext()
     idx = raw.find("缇安")
     if idx == -1:
         return
     arg_text = raw[idx + len("缇安"):].strip()
+
+    nonebot.logger.info(f"缇安命令: arg_text='{arg_text}'")
 
     # ── 无参数：最新公告 ──
     if not arg_text:
