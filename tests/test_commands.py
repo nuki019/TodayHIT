@@ -135,10 +135,10 @@ def test_build_forward_nodes():
         assert len(content) == 1
         assert content[0]["type"] == "text"
         text = content[0]["data"]["text"]
-        assert "📌" in text
-        assert "📅" in text
-        assert "🏫" in text
-        assert "🔗" in text
+        assert "时间:" in text
+        assert "部门:" in text
+        assert "来源:" in text
+        assert "链接:" in text
 
 
 def test_build_forward_nodes_empty():

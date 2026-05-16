@@ -21,6 +21,8 @@ class Article(BaseModel):
     id = IntegerField(primary_key=True)
     title = TextField(null=False)
     url = TextField(null=False)
+    source = TextField(default="todayhit")
+    source_id = TextField(null=True)
     source_dept = TextField(null=True)
     category = TextField(null=True)
     published_at = DateTimeField(null=True)
@@ -29,6 +31,7 @@ class Article(BaseModel):
 
     class Meta:
         table_name = "articles"
+        indexes = ((("source", "source_id"), True),)
 
 
 class Subscription(BaseModel):

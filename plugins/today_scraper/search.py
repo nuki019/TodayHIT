@@ -9,6 +9,7 @@ from functools import reduce
 from typing import Any
 
 from .models import Article
+from .scraper import _source_label
 
 MAX_RESULTS = 50
 
@@ -130,7 +131,8 @@ def build_forward_nodes(articles: list[Any], bot_id: int) -> list[dict]:
     for a in articles:
         dept = a.source_dept or "未知"
         time_str = _format_time(a.published_at)
-        text = f"📌 {a.title}\n📅 {time_str}\n🏫 {dept}\n🔗 {a.url}"
+        source = _source_label(getattr(a, "source", None) or "todayhit")
+        text = f"{a.title}\n时间: {time_str}\n部门: {dept}\n来源: {source}\n链接: {a.url}"
         nodes.append({
             "type": "node",
             "data": {

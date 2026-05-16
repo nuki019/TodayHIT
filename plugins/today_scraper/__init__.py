@@ -5,7 +5,15 @@ import nonebot
 from .config import TodayHITConfig
 from .models import Article, GroupMessage, ScraperState, Subscription, init_db
 from .pusher import build_push_nodes, get_unpushed_articles, mark_pushed, match_subscriptions
-from .scraper import fetch_category_page, fetch_rss, parse_category_page, parse_rss
+from .scraper import (
+    fetch_category_page,
+    fetch_rss,
+    parse_category_page,
+    parse_rss,
+    scrape_hit_main,
+    scrape_hitcs,
+    scrape_hoa_blog,
+)
 
 # 以下 nonebot 初始化仅在完整运行时执行，测试时跳过
 try:
@@ -81,7 +89,17 @@ if _NONEBOT_READY:
     # ── 核心采集 ────────────────────────────────────────
 
     async def scrape_only() -> int:
-        """仅采集，不推送。返回新增 RSS 文章数。"""
+        """采集所有数据源，返回新增文章总数。"""
+        new_count = 0
+        new_count += await _scrape_todayhit()
+        new_count += await _scrape_hit_main()
+        new_count += await _scrape_hitcs()
+        new_count += await _scrape_hoa_blog()
+        nonebot.logger.info(f"全源采集完成，新增 {new_count} 条")
+        return new_count
+
+    async def _scrape_todayhit() -> int:
+        """原有 today.hit.edu.cn RSS + 分类页采集。"""
         base_url = config.todayhit_base_url
         delay = config.todayhit_request_delay
 
@@ -101,6 +119,8 @@ if _NONEBOT_READY:
                     id=item["id"],
                     title=item["title"],
                     url=item["url"],
+                    source="todayhit",
+                    source_id=str(item["id"]),
                     published_at=item["published_at"],
                 ).on_conflict_ignore().execute()
                 new_count += 1
@@ -121,6 +141,8 @@ if _NONEBOT_READY:
                         id=a["id"],
                         title=a["title"],
                         url=a["url"],
+                        source="todayhit",
+                        source_id=str(a["id"]),
                         source_dept=a.get("source_dept"),
                         category=cat_name,
                         published_at=a.get("published_at"),
@@ -135,8 +157,55 @@ if _NONEBOT_READY:
             except Exception as e:
                 nonebot.logger.warning(f"分类页 {cat_name} 采集失败: {e}")
 
-        nonebot.logger.info(f"采集完成，新增 {new_count} 条 RSS 文章")
+        nonebot.logger.info(f"todayhit 采集完成，新增 {new_count} 条")
         return new_count
+
+    async def _scrape_hit_main() -> int:
+        """hit.edu.cn 主站工大要闻。"""
+        try:
+            items = await scrape_hit_main()
+            new_count = 0
+            for a in items:
+                Article.insert(**a).on_conflict_ignore().execute()
+                new_count += 1
+            nonebot.logger.info(f"hit_main 采集完成，新增 {new_count} 条")
+            return new_count
+        except Exception as e:
+            nonebot.logger.warning(f"hit_main 采集失败: {e}")
+            return 0
+
+    async def _scrape_hitcs() -> int:
+        """HITCS GitHub 仓库提交。"""
+        try:
+            last_sha = ScraperState.get_value("last_hitcs_sha", "")
+            items = await scrape_hitcs()
+            new_count = 0
+            for a in items:
+                if a["source_id"] == last_sha:
+                    break
+                Article.insert(**a).on_conflict_ignore().execute()
+                new_count += 1
+            if items:
+                ScraperState.set("last_hitcs_sha", items[0]["source_id"])
+            nonebot.logger.info(f"hitcs 采集完成，新增 {new_count} 条")
+            return new_count
+        except Exception as e:
+            nonebot.logger.warning(f"hitcs 采集失败: {e}")
+            return 0
+
+    async def _scrape_hoa_blog() -> int:
+        """hoa.moe 博客。"""
+        try:
+            items = await scrape_hoa_blog()
+            new_count = 0
+            for a in items:
+                Article.insert(**a).on_conflict_ignore().execute()
+                new_count += 1
+            nonebot.logger.info(f"hoa_blog 采集完成，新增 {new_count} 条")
+            return new_count
+        except Exception as e:
+            nonebot.logger.warning(f"hoa_blog 采集失败: {e}")
+            return 0
 
     # ── 订阅推送（原有逻辑） ────────────────────────────
 
@@ -172,6 +241,7 @@ if _NONEBOT_READY:
                         "source_dept": article.source_dept,
                         "url": article.url,
                         "published_at": article.published_at,
+                        "source": getattr(article, "source", None) or "todayhit",
                     }
                 )
                 mark_pushed(article.id, target_type, target_id)
@@ -223,6 +293,7 @@ if _NONEBOT_READY:
                 "source_dept": a.source_dept,
                 "url": a.url,
                 "published_at": a.published_at,
+                "source": getattr(a, "source", None) or "todayhit",
             }
             for a in unpushed
         ]

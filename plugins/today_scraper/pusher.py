@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from .models import Article, PushRecord, Subscription
+from .scraper import _source_label
 
 
 def _format_time(dt: datetime | None) -> str:
@@ -61,7 +62,8 @@ def build_push_nodes(articles: list[dict[str, Any]], bot_id: int) -> list[dict]:
     for a in articles:
         dept = a.get("source_dept") or "未知"
         time_str = _format_time(a.get("published_at"))
-        text = f"📌 {a['title']}\n📅 {time_str}\n🏫 {dept}\n🔗 {a['url']}"
+        source = _source_label(a.get("source") or "todayhit")
+        text = f"{a['title']}\n时间: {time_str}\n部门: {dept}\n来源: {source}\n链接: {a['url']}"
         nodes.append({
             "type": "node",
             "data": {
@@ -78,9 +80,9 @@ def build_search_message(
 ) -> str:
     """构建搜索结果消息文本。"""
     if not results:
-        return f'🔍 搜索"{keyword}" - 无结果'
+        return f'搜索"{keyword}" - 无结果'
 
-    lines = [f'🔍 搜索"{keyword}" - 第 {page + 1} 页（共 {total} 条）', "━" * 18]
+    lines = [f'搜索"{keyword}" - 第 {page + 1} 页（共 {total} 条）', "━" * 18]
     for i, r in enumerate(results, 1):
         dept = r.get("source_dept") or ""
         date_str = r.get("date") or ""
