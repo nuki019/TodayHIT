@@ -31,7 +31,7 @@ class Article(BaseModel):
 
     class Meta:
         table_name = "articles"
-        indexes = ((("source", "source_id"), True),)
+        # 索引在 init_db 中手动创建（需要先迁移旧数据）
 
 
 class Subscription(BaseModel):
@@ -115,8 +115,28 @@ def init_db(db_path: str) -> None:
     db.init(db_path)
     db.connect(reuse_if_open=True)
     db.create_tables([Article, Subscription, PushRecord, GroupMessage, ScraperState])
+    # 迁移旧数据：为缺少 source/source_id 的表补充列和默认值
+    _migrate_article_source()
     # 注册 REGEXP 函数供 SQLite 正则查询使用
     db.register_function(_regexp, "REGEXP")
+
+
+def _migrate_article_source() -> None:
+    """迁移：给 articles 表添加 source/source_id 列并填充默认值。"""
+    cursor = db.execute_sql("PRAGMA table_info(articles)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "source" not in columns:
+        db.execute_sql("ALTER TABLE articles ADD COLUMN source TEXT DEFAULT 'todayhit'")
+    if "source_id" not in columns:
+        db.execute_sql("ALTER TABLE articles ADD COLUMN source_id TEXT")
+    db.execute_sql(
+        "UPDATE articles SET source='todayhit', source_id=CAST(id AS TEXT) "
+        "WHERE source IS NULL OR source_id IS NULL"
+    )
+    db.execute_sql(
+        'CREATE UNIQUE INDEX IF NOT EXISTS "article_source_source_id" '
+        'ON "articles" ("source", "source_id")'
+    )
 
 
 def _regexp(pattern: str, value: str) -> bool:
