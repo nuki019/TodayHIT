@@ -236,15 +236,37 @@ async def _handle_dept_list(bot, event: MessageEvent):
     if not dept_list:
         await bot.send(event, "缇安还没收集到部门数据呢～")
         return
-    lines = ["缇安整理好的部门列表来啦～", "━"* 16]
-    for d in dept_list[:30]:
-        cnt = Article.select().where(Article.source_dept == d).count()
-        lines.append(f"{d} ({cnt})")
-    if len(dept_list) > 30:
-        lines.append(f"... 共 {len(dept_list)} 个部门")
-    lines.append("━"* 16)
-    lines.append("输入「缇安 部门 名称」查看该部门公告")
-    await bot.send(event, "\n".join(lines))
+
+    bot_id = int(bot.self_id)
+    nodes = []
+    # 每 30 个部门一个节点
+    chunk_size = 30
+    for chunk_start in range(0, len(dept_list), chunk_size):
+        chunk = dept_list[chunk_start:chunk_start + chunk_size]
+        lines = []
+        for d in chunk:
+            cnt = Article.select().where(Article.source_dept == d).count()
+            lines.append(f"{d} ({cnt})")
+        nodes.append({
+            "type": "node",
+            "data": {
+                "user_id": str(bot_id),
+                "nickname": "缇安",
+                "content": [{"type": "text", "data": {"text": "\n".join(lines)}}],
+            },
+        })
+
+    # 标题节点
+    nodes.insert(0, {
+        "type": "node",
+        "data": {
+            "user_id": str(bot_id),
+            "nickname": "缇安",
+            "content": [{"type": "text", "data": {"text": f"部门列表（共 {len(dept_list)} 个）\n━━━━━━━━━━\n缇安 部门 名称 — 查看该部门公告\n缇安 部门 名称 搜索 词 — 部门内搜索\n缇安 订阅 部门 名称 — 订阅该部门"}}],
+        },
+    })
+
+    await _send_forward(bot, event, nodes)
 
 
 async def _handle_dept(bot, event: MessageEvent, arg_text: str):
@@ -252,7 +274,15 @@ async def _handle_dept(bot, event: MessageEvent, arg_text: str):
         await bot.send(event, "缇安需要部门名称哦～试试：缇安 部门 机电学院")
         return
 
-    keyword, time_range = parse_search_args(arg_text)
+    # 支持 "部门名 搜索 关键词" 和 "部门名 时间 xx~xx"
+    search_keyword = ""
+    dept_name = arg_text
+    if "搜索" in arg_text:
+        parts = arg_text.split("搜索", 1)
+        dept_name = parts[0].strip()
+        search_keyword = parts[1].strip()
+
+    keyword, time_range = parse_search_args(dept_name)
     dept_name = keyword.strip()
 
     query = (
@@ -261,28 +291,32 @@ async def _handle_dept(bot, event: MessageEvent, arg_text: str):
         .order_by(Article.published_at.desc(nulls="LAST"), Article.id.desc())
         .limit(MAX_RESULTS)
     )
+    if search_keyword:
+        query = query.where(Article.title.contains(search_keyword))
     if time_range:
         start, end = time_range
         query = query.where(Article.published_at.between(start, end))
 
     articles = list(query)
     if not articles:
-        await bot.send(event, "缇安没找到这个部门哦～输入「缇安 部门列表」看看所有部门名称吧！")
+        await bot.send(event, "缇安没找到相关公告哦～输入「缇安 部门列表」看看所有部门名称吧！")
         return
 
     nodes = build_forward_nodes(articles, int(event.self_id))
 
-    if time_range:
-        await bot.send(event, "缇安筛出该时段该部门公告啦～")
+    if search_keyword:
+        await bot.send(event, f"缇安在{dept_name}中搜索到以下公告～")
+    elif time_range:
+        await bot.send(event, f"缇安筛出{dept_name}该时段的公告啦～")
     else:
-        await bot.send(event, "缇安为你搬来该部门最新公告～")
+        await bot.send(event, f"缇安为你搬来{dept_name}最新公告～")
 
     await _send_forward(bot, event, nodes)
 
 
 async def _handle_subscribe(bot, event: MessageEvent, arg_text: str):
     if not arg_text:
-        await bot.send(event, "用法：缇安 订阅 分类 公告公示\n或：缇安 订阅 关键词 招聘")
+        await bot.send(event, "用法：缇安 订阅 分类 公告公示\n或：缇安 订阅 关键词 招聘\n或：缇安 订阅 部门 航天学院")
         return
 
     parts = arg_text.split(maxsplit=1)
@@ -314,8 +348,20 @@ async def _handle_subscribe(bot, event: MessageEvent, arg_text: str):
         ).on_conflict_ignore().execute()
         await bot.send(event, "缇安已帮你订阅关键词！有新公告立刻喊你～")
 
+    elif sub_type == "部门":
+        if not value:
+            await bot.send(event, "缇安需要部门名称哦～试试：缇安 订阅 部门 航天学院")
+            return
+        Subscription.insert(
+            target_type=target_type,
+            target_id=target_id,
+            sub_type="dept",
+            sub_value=value,
+        ).on_conflict_ignore().execute()
+        await bot.send(event, f"缇安已帮你订阅{value}的公告！有新消息第一时间通知你～")
+
     else:
-        await bot.send(event, "订阅类型只能是「分类」或「关键词」哦～")
+        await bot.send(event, "订阅类型只能是「分类」「关键词」或「部门」哦～")
 
 
 async def _handle_unsubscribe(bot, event: MessageEvent, arg_text: str):
@@ -358,7 +404,7 @@ async def _handle_list(bot, event: MessageEvent):
 
     lines = ["缇安帮你记的订阅清单哦～", "━"* 16]
     for i, s in enumerate(subs, 1):
-        type_label = "分类"if s.sub_type == "category"else "关键词"
+        type_label = {"category": "分类", "keyword": "关键词", "dept": "部门"}.get(s.sub_type, s.sub_type)
         lines.append(f"{i}. [{type_label}] {s.sub_value}")
     lines.append("━"* 16)
     lines.append("输入「缇安 取消订阅 序号」取消")
@@ -489,13 +535,13 @@ async def _handle_help(bot, event: MessageEvent):
     bot_id = int(bot.self_id)
     nodes = [
         {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
-            {"type": "text", "data": {"text": "缇安使用指南\n\n查询类\n━━━━━━━━━━\n缇安 — 最新公告\n缇安 时间 24.04.01~24.04.30 — 按时间筛选\n缇安 部门列表 — 查看所有部门\n缇安 部门 名称 — 按部门筛选\n缇安 统计 — 数据库统计"}}
+            {"type": "text", "data": {"text": "缇安使用指南\n\n查询类\n━━━━━━━━━━\n缇安 — 最新公告\n缇安 时间 24.04.01~24.04.30 — 按时间筛选\n缇安 部门列表 — 查看所有部门\n缇安 部门 名称 — 按部门筛选\n缇安 部门 名称 搜索 词 — 部门内搜索\n缇安 统计 — 数据库统计"}}
         ]}},
         {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
             {"type": "text", "data": {"text": "搜索类\n━━━━━━━━━━\n缇安 搜索 关键词 — 精确优先搜索\n缇安 搜索 机电 学院 — 同时含两词\n缇安 搜索 奖学金/评优 — 含任意一词\n缇安 搜索 正则:表达式 — 正则搜索\n缇安 搜索 奖学金 时间 24.01.01~24.12.31"}}
         ]}},
         {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
-            {"type": "text", "data": {"text": "订阅类\n━━━━━━━━━━\n缇安 订阅 分类 公告公示 — 订阅分类\n缇安 订阅 关键词 招聘 — 订阅关键词\n缇安 取消订阅 序号 — 取消订阅\n缇安 我的订阅 — 查看订阅"}}
+            {"type": "text", "data": {"text": "订阅类\n━━━━━━━━━━\n缇安 订阅 分类 公告公示 — 订阅分类\n缇安 订阅 关键词 招聘 — 订阅关键词\n缇安 订阅 部门 航天学院 — 订阅部门\n缇安 取消订阅 序号 — 取消订阅\n缇安 我的订阅 — 查看订阅"}}
         ]}},
         {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
             {"type": "text", "data": {"text": "趣味功能\n━━━━━━━━━━\n缇安 找群友 — 随机抽群友\n缇安 帮助 — 查看此帮助"}}

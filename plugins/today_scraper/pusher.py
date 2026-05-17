@@ -30,6 +30,12 @@ def match_subscriptions(article: Article) -> list[tuple[str, str]]:
         if sub.sub_value in article.title:
             targets.add((sub.target_type, sub.target_id))
 
+    # 部门订阅匹配
+    if article.source_dept:
+        for sub in Subscription.select().where(Subscription.sub_type == "dept"):
+            if sub.sub_value in article.source_dept:
+                targets.add((sub.target_type, sub.target_id))
+
     return list(targets)
 
 
