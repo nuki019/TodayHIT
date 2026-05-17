@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import re
 from datetime import datetime
@@ -506,7 +507,7 @@ async def scrape_sudy_site(base_url: str, dept_name: str) -> list[dict[str, Any]
 
 
 async def scrape_all_departments() -> list[dict[str, Any]]:
-    """爬取所有 SUDY WP 子站点。"""
+    """爬取所有 SUDY WP 子站点（首页）。"""
     all_articles: list[dict[str, Any]] = []
     for base_url, dept_name in SUDY_SITES:
         try:
@@ -515,3 +516,187 @@ async def scrape_all_departments() -> list[dict[str, Any]]:
         except Exception:
             pass
     return all_articles
+
+
+# ── 历史数据爬取（列表页分页） ──────────────────────────
+
+# 常见的通知公告列表页路径
+_SUDY_LIST_PATHS = [
+    "/tzgg/list.htm", "/xygg/list.htm", "/xyxw/list.htm",
+    "/tzdt/list.htm", "/xwdt/list.htm", "/mtjj/list.htm",
+    "/10232/list.htm", "/10091/list.htm", "/10081/list.htm",
+]
+
+
+def _extract_articles_from_html(html: str, base_url: str) -> list[dict[str, Any]]:
+    """从 SUDY WP 列表页 HTML 中提取文章。"""
+    soup = BeautifulSoup(html, "lxml")
+    articles: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for link in soup.find_all("a", href=True):
+        href = link.get("href", "")
+        title = link.get_text(strip=True)
+        if not title or len(title) < 5:
+            continue
+        m = _SUDY_ARTICLE_RE.search(href)
+        if not m:
+            continue
+        url = href if href.startswith("http") else base_url.rstrip("/") + href
+        if url in seen:
+            continue
+        seen.add(url)
+
+        year, md = int(m.group(1)), m.group(2)
+        try:
+            pub_date = datetime(year, int(md[:2]), int(md[2:]))
+        except ValueError:
+            pub_date = None
+        title = re.sub(r"^\d{4}[-/]\d{2}[-/]\d{2}\s*", "", title)
+
+        articles.append({
+            "id": _url_hash(url),
+            "title": title,
+            "url": url,
+            "source": "dept",
+            "source_id": hashlib.md5(url.encode()).hexdigest()[:16],
+            "source_dept": "",  # 由调用方填充
+            "category": "部门通知",
+            "published_at": pub_date,
+        })
+    return articles
+
+
+def _find_max_page(html: str) -> int:
+    """从 SUDY WP 列表页中提取最大页码。"""
+    soup = BeautifulSoup(html, "lxml")
+    paging = soup.select_one("ul.wp_paging, .wp_paging, .paging")
+    if not paging:
+        return 1
+    # 尝试找 .all_pages 或 .last 链接
+    all_pages = paging.select_one(".all_pages")
+    if all_pages:
+        try:
+            return int(all_pages.get_text(strip=True))
+        except ValueError:
+            pass
+    # 从页码链接中提取最大数字
+    max_p = 1
+    for a in paging.find_all("a", href=True):
+        href = a["href"]
+        pm = re.search(r"list(\d+)\.htm", href)
+        if pm:
+            max_p = max(max_p, int(pm.group(1)))
+    return max_p
+
+
+async def _discover_list_url(
+    client: httpx.AsyncClient, base_url: str
+) -> str | None:
+    """从首页导航中发现通知列表页 URL。"""
+    # 先尝试常见路径
+    for path in _SUDY_LIST_PATHS:
+        try:
+            r = await client.get(base_url.rstrip("/") + path)
+            if r.status_code == 200 and r.text.count("/page.htm") >= 2:
+                return base_url.rstrip("/") + path
+        except Exception:
+            pass
+
+    # 从首页导航链接中找
+    try:
+        r = await client.get(base_url)
+        if r.status_code != 200:
+            return None
+        nav_links = re.findall(
+            r'href="(/\d+/list\.htm)"', r.text
+        )
+        for link in dict.fromkeys(nav_links):  # 去重保序
+            try:
+                r2 = await client.get(base_url.rstrip("/") + link)
+                if r2.status_code == 200 and r2.text.count("/page.htm") >= 2:
+                    return base_url.rstrip("/") + link
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return None
+
+
+async def scrape_sudy_history(
+    base_url: str, dept_name: str, max_pages: int = 5, delay: float = 1.0
+) -> list[dict[str, Any]]:
+    """爬取单个 SUDY WP 站点的历史通知（多页）。"""
+    async with httpx.AsyncClient(
+        headers=HEADERS, follow_redirects=True, timeout=15
+    ) as client:
+        list_url = await _discover_list_url(client, base_url)
+        if not list_url:
+            # fallback: 爬首页
+            return await scrape_sudy_site(base_url, dept_name)
+
+        articles: list[dict[str, Any]] = []
+        seen_ids: set[int] = set()
+
+        # 第 1 页
+        r = await client.get(list_url)
+        if r.status_code != 200:
+            return []
+        page_articles = _extract_articles_from_html(r.text, base_url)
+        for a in page_articles:
+            a["source_dept"] = dept_name
+            if a["id"] not in seen_ids:
+                seen_ids.add(a["id"])
+                articles.append(a)
+
+        total_pages = _find_max_page(r.text)
+        pages_to_scrape = min(total_pages, max_pages)
+
+        # 第 2 页起
+        base_list = list_url.replace("/list.htm", "/list")
+        for page in range(2, pages_to_scrape + 1):
+            await asyncio.sleep(delay)
+            page_url = f"{base_list}{page}.htm"
+            try:
+                r = await client.get(page_url)
+                if r.status_code != 200:
+                    break
+                page_articles = _extract_articles_from_html(r.text, base_url)
+                if not page_articles:
+                    break
+                for a in page_articles:
+                    a["source_dept"] = dept_name
+                    if a["id"] not in seen_ids:
+                        seen_ids.add(a["id"])
+                        articles.append(a)
+            except Exception:
+                break
+
+    return articles
+
+
+async def scrape_all_departments_history(
+    max_pages: int = 5, delay: float = 1.0
+) -> list[dict[str, Any]]:
+    """爬取所有子站点的历史通知（多页）。"""
+    all_articles: list[dict[str, Any]] = []
+    total_sites = len(SUDY_SITES)
+    for i, (base_url, dept_name) in enumerate(SUDY_SITES, 1):
+        try:
+            items = await scrape_sudy_history(base_url, dept_name, max_pages, delay)
+            all_articles.extend(items)
+            if items:
+                nonebot_logger.info(
+                    f"[{i}/{total_sites}] {dept_name}: {len(items)} 条"
+                )
+        except Exception:
+            pass
+    return all_articles
+
+
+# 延迟导入 logger（仅在 nonebot 环境中可用）
+try:
+    nonebot_logger = __import__("nonebot").logger
+except Exception:
+    import logging
+    nonebot_logger = logging.getLogger("scraper")
