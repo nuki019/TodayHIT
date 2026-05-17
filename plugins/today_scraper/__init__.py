@@ -10,6 +10,7 @@ from .scraper import (
     fetch_rss,
     parse_category_page,
     parse_rss,
+    scrape_all_departments,
     scrape_hit_main,
     scrape_hitcs,
     scrape_hoa_blog,
@@ -31,6 +32,9 @@ except Exception:
     _NONEBOT_READY = False
 
 CATEGORY_MAP = {10: "公告公示", 11: "新闻快讯"}
+
+# 启动爬取完成标志，防止推送空数据
+_startup_done = False
 
 
 if _NONEBOT_READY:
@@ -63,12 +67,15 @@ if _NONEBOT_READY:
 
     async def _startup_scrape():
         """启动后延迟执行一次爬取。"""
+        global _startup_done
         await asyncio.sleep(5)
         try:
             await scrape_only()
             nonebot.logger.info("启动爬取完成")
         except Exception as e:
             nonebot.logger.warning(f"启动爬取失败: {e}")
+        finally:
+            _startup_done = True
 
     async def _sync_group_members():
         """同步所有群成员昵称到 GroupMessage 表。"""
@@ -95,6 +102,7 @@ if _NONEBOT_READY:
         new_count += await _scrape_hit_main()
         new_count += await _scrape_hitcs()
         new_count += await _scrape_hoa_blog()
+        new_count += await _scrape_departments()
         nonebot.logger.info(f"全源采集完成，新增 {new_count} 条")
         return new_count
 
@@ -207,10 +215,27 @@ if _NONEBOT_READY:
             nonebot.logger.warning(f"hoa_blog 采集失败: {e}")
             return 0
 
+    async def _scrape_departments() -> int:
+        """哈工大各子站点（学院/部处/直属单位）。"""
+        try:
+            items = await scrape_all_departments()
+            new_count = 0
+            for a in items:
+                Article.insert(**a).on_conflict_ignore().execute()
+                new_count += 1
+            nonebot.logger.info(f"各部门站点采集完成，新增 {new_count} 条")
+            return new_count
+        except Exception as e:
+            nonebot.logger.warning(f"部门站点采集失败: {e}")
+            return 0
+
     # ── 订阅推送（原有逻辑） ────────────────────────────
 
     async def scrape_and_push():
         """采集 + 订阅推送。"""
+        if not _startup_done:
+            nonebot.logger.info("启动爬取尚未完成，跳过本次推送")
+            return
         await scrape_only()
 
         max_push = config.todayhit_max_push_per_round
@@ -272,6 +297,9 @@ if _NONEBOT_READY:
 
     async def daily_push():
         """每天 7:30：爬取 → 广播所有群 → 等 10s → 推送私聊订阅用户。"""
+        if not _startup_done:
+            nonebot.logger.info("启动爬取尚未完成，跳过每日推送")
+            return
         await scrape_only()
 
         max_push = config.todayhit_max_push_per_round
@@ -360,12 +388,14 @@ if _NONEBOT_READY:
     # ── 定时任务注册 ────────────────────────────────────
 
     # 每 4 小时：采集 + 订阅推送
+    # misfire_grace_time=3600: 重启后超过 1 小时的错过的任务不再补执行
     scheduler.add_job(
         scrape_and_push,
         "interval",
         seconds=config.todayhit_scrape_interval,
         id="todayhit_scrape",
         replace_existing=True,
+        misfire_grace_time=3600,
     )
 
     # 每天 7:30：采集 + 广播所有群 + 私聊订阅

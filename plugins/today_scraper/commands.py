@@ -373,7 +373,7 @@ async def _handle_stat(bot, event: MessageEvent):
     lines = [f"缇安整理的数据库小报告来啦～\n{sep}", f"总文章数: {total}", ""]
 
     # 分源统计（NULL source 归入 todayhit）
-    source_names = ["todayhit", "hit_main", "hit_inst", "hitcs", "hoa_blog"]
+    source_names = ["todayhit", "hit_main", "dept", "hitcs", "hoa_blog"]
     for src in source_names:
         if src == "todayhit":
             cnt = Article.select().where(
@@ -501,7 +501,7 @@ async def _handle_help(bot, event: MessageEvent):
             {"type": "text", "data": {"text": "趣味功能\n━━━━━━━━━━\n缇安 找群友 — 随机抽群友\n缇安 帮助 — 查看此帮助"}}
         ]}},
         {"type": "node", "data": {"user_id": str(bot_id), "nickname": "缇安", "content": [
-            {"type": "text", "data": {"text": "数据源\n━━━━━━━━━━\n今日哈工大 — today.hit.edu.cn 公告快讯\n工大官网 — hit.edu.cn 主站要闻\n课程资料 — HITCS GitHub 仓库\nHOA博客 — hoa.moe 学习经验"}}
+            {"type": "text", "data": {"text": "数据源\n━━━━━━━━━━\n今日哈工大 — today.hit.edu.cn 公告快讯\n工大官网 — hit.edu.cn 主站要闻\n部门站点 — 各学院/部处/直属单位\n课程资料 — HITCS GitHub 仓库\nHOA博客 — hoa.moe 学习经验"}}
         ]}},
     ]
 

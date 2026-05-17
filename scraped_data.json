@@ -1,0 +1,780 @@
+{
+  "hit_main": [
+    {
+      "id": 431496726,
+      "title": "《求是》杂志发表习近平总书记重要文章《做强做优做大实体经济》",
+      "url": "http://news.hit.edu.cn/2026/0515/c1510a242291/page.htm",
+      "source": "hit_main",
+      "source_id": "19b81e16a33aa02b",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-15 00:00"
+    },
+    {
+      "id": 2141766646,
+      "title": "粤港澳大湾区企业家代表团一行来校调研",
+      "url": "http://news.hit.edu.cn/2026/0515/c1510a242287/page.htm",
+      "source": "hit_main",
+      "source_id": "7fa8c3f606ab5616",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-15 00:00"
+    },
+    {
+      "id": 4198334387,
+      "title": "哈工大建筑设计研究院有限公司项目荣获华夏建设科学技术奖一等奖",
+      "url": "http://news.hit.edu.cn/2026/0514/c1510a242254/page.htm",
+      "source": "hit_main",
+      "source_id": "fa3d7fb31866aa7b",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-14 00:00"
+    },
+    {
+      "id": 2295004973,
+      "title": "燕山大学校长王慧远带队来校调研交流",
+      "url": "http://news.hit.edu.cn/2026/0514/c1510a242250/page.htm",
+      "source": "hit_main",
+      "source_id": "88caff2d2c25de2c",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-14 00:00"
+    },
+    {
+      "id": 2393681108,
+      "title": "哈工大举行全校领导干部树立和践行正确政绩观专题培训",
+      "url": "http://news.hit.edu.cn/2026/0513/c1510a242247/page.htm",
+      "source": "hit_main",
+      "source_id": "8eacacd40b2e8a4d",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-13 00:00"
+    },
+    {
+      "id": 1441260719,
+      "title": "南京理工大学校长杨益新一行来校调研",
+      "url": "http://news.hit.edu.cn/2026/0512/c1510a242236/page.htm",
+      "source": "hit_main",
+      "source_id": "55e7e4afe097a0f6",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-12 00:00"
+    },
+    {
+      "id": 128143742,
+      "title": "上海科学院党委副书记、院长孙真荣一行来校调研",
+      "url": "http://news.hit.edu.cn/2026/0512/c1510a242227/page.htm",
+      "source": "hit_main",
+      "source_id": "07a3517eb1c28224",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-12 00:00"
+    },
+    {
+      "id": 1610218449,
+      "title": "江西科技师范大学校长袁雄一行来校调研",
+      "url": "http://news.hit.edu.cn/2026/0512/c1510a242231/page.htm",
+      "source": "hit_main",
+      "source_id": "5ff9fbd124ed934e",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-12 00:00"
+    },
+    {
+      "id": 2212016211,
+      "title": "哈工大刘英想教授团队研制厘米级压电机器人成功实现平面全向运动",
+      "url": "http://news.hit.edu.cn/2026/0512/c1510a242220/page.htm",
+      "source": "hit_main",
+      "source_id": "83d8b0534c90ca2e",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-12 00:00"
+    },
+    {
+      "id": 15028001,
+      "title": "哈工大隋解和、刘紫航教授团队在无碲热电材料与器件设计方面取得重要进展",
+      "url": "http://news.hit.edu.cn/2026/0512/c1510a242222/page.htm",
+      "source": "hit_main",
+      "source_id": "00e54f219a30dcce",
+      "source_dept": null,
+      "category": "工大要闻",
+      "published_at": "2026-05-12 00:00"
+    }
+  ],
+  "hit_inst": [
+    {
+      "id": 2771157015,
+      "title": "航天学院",
+      "url": "http://sa.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "a52c8017a2056c7b",
+      "source_dept": "航天学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 1626070156,
+      "title": "电子与信息工程学院",
+      "url": "http://seie.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "60ebdc8cc6cb31bf",
+      "source_dept": "电子与信息工程学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 2431238662,
+      "title": "机电工程学院",
+      "url": "http://sme.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "90e9c206a43e0ef6",
+      "source_dept": "机电工程学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 2823498642,
+      "title": "材料科学与工程学院",
+      "url": "http://mse.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "a84b2b928b80dbbc",
+      "source_dept": "材料科学与工程学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 562029173,
+      "title": "能源科学与工程学院",
+      "url": "http://power.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "217fe275db5a7f80",
+      "source_dept": "能源科学与工程学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 3915562117,
+      "title": "电气工程及自动化学院",
+      "url": "http://hitee.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "e962bc85baa63acb",
+      "source_dept": "电气工程及自动化学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 2233415686,
+      "title": "仪器科学与工程学院",
+      "url": "http://ise.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "851f3806e5863dd9",
+      "source_dept": "仪器科学与工程学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 4232314554,
+      "title": "数学学院",
+      "url": "http://math.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "fc43feba6af04e61",
+      "source_dept": "数学学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 1864780380,
+      "title": "物理学院",
+      "url": "http://physics.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "6f264a5c722469e5",
+      "source_dept": "物理学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 3426057924,
+      "title": "经济与管理学院",
+      "url": "http://som.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "cc357ec439628e8c",
+      "source_dept": "经济与管理学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 898154909,
+      "title": "商学院",
+      "url": "http://hbs.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "3588c19d9456954f",
+      "source_dept": "商学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 2088128464,
+      "title": "人文社科学部",
+      "url": "http://rwskxb.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "7c764fd0f881f3ae",
+      "source_dept": "人文社科学部",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 3170205148,
+      "title": "马克思主义学院",
+      "url": "http://marx.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "bcf57ddc3f7775b0",
+      "source_dept": "马克思主义学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 1885811510,
+      "title": "土木工程学院",
+      "url": "http://civil.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "70673336ef93535f",
+      "source_dept": "土木工程学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 2147464767,
+      "title": "环境学院",
+      "url": "http://env.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "7fffb63fb1472255",
+      "source_dept": "环境学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 2793295316,
+      "title": "建筑与设计学院",
+      "url": "http://arch.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "a67e4dd42472d777",
+      "source_dept": "建筑与设计学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 329182746,
+      "title": "交通科学与工程学院",
+      "url": "http://jtxy.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "139eee1a0eaf5097",
+      "source_dept": "交通科学与工程学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 27519039,
+      "title": "计算学部",
+      "url": "http://computing.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "01a3e83f0742398f",
+      "source_dept": "计算学部",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 27519039,
+      "title": "计算机科学与技术学院",
+      "url": "http://computing.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "01a3e83f0742398f",
+      "source_dept": "计算机科学与技术学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 3572434476,
+      "title": "人工智能学院",
+      "url": "http://sai.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "d4ef062c3123bec7",
+      "source_dept": "人工智能学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 1175759404,
+      "title": "国家示范性软件学院",
+      "url": "http://software.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "4614aa2cb6b2c7df",
+      "source_dept": "国家示范性软件学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 207980596,
+      "title": "网络空间安全学院",
+      "url": "http://cys.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "0c6588342eb4adee",
+      "source_dept": "网络空间安全学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 3623322885,
+      "title": "化工与化学学院",
+      "url": "http://chemeng.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "d7f7850596c38478",
+      "source_dept": "化工与化学学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 893166689,
+      "title": "医学与健康学院",
+      "url": "http://med.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "353ca46150d87fa6",
+      "source_dept": "医学与健康学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 714076453,
+      "title": "生命科学与技术学院",
+      "url": "http://life.hit.edu.cn//",
+      "source": "hit_inst",
+      "source_id": "2a8ff12518c04eee",
+      "source_dept": "生命科学与技术学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 3420511403,
+      "title": "未来技术学院",
+      "url": "http://future.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "cbe0dcab547205b0",
+      "source_dept": "未来技术学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 2491907006,
+      "title": "体育部",
+      "url": "http://tyb.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "94877bbe2c2bd9f8",
+      "source_dept": "体育部",
+      "category": "教学与科研机构",
+      "published_at": null
+    },
+    {
+      "id": 71319300,
+      "title": "深圳国际设计学院",
+      "url": "http://sisd.hit.edu.cn/",
+      "source": "hit_inst",
+      "source_id": "04403f0486f4d42f",
+      "source_dept": "深圳国际设计学院",
+      "category": "教学与科研机构",
+      "published_at": null
+    }
+  ],
+  "hitcs": [
+    {
+      "id": 995586859,
+      "title": "[HITCS] Update readme.md",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/43d97f7f12facedec5a23067cee7cf0c32b72043",
+      "source": "hitcs",
+      "source_id": "43d97f7f12facede",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-12 08:39"
+    },
+    {
+      "id": 2525889100,
+      "title": "[HITCS] Update 哈工大计算学部导师.md",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/e0b1941e159c2666f2c34fa3f17a0e767f1db4e2",
+      "source": "hitcs",
+      "source_id": "e0b1941e159c2666",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-11 08:29"
+    },
+    {
+      "id": 2886947065,
+      "title": "[HITCS] Create 1.md",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/23d172e4e563213e78313419d3fcbf6cc659f22e",
+      "source": "hitcs",
+      "source_id": "23d172e4e563213e",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-09 08:10"
+    },
+    {
+      "id": 3809941340,
+      "title": "[HITCS] Create 2026春期末回忆.md",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/40877be8475015d1ecf7423148c882866c5c435e",
+      "source": "hitcs",
+      "source_id": "40877be8475015d1",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-09 07:44"
+    },
+    {
+      "id": 3221059011,
+      "title": "[HITCS] Add files via upload",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/70c24c86f9d6f023ea3a868ce97fc1273c904b3c",
+      "source": "hitcs",
+      "source_id": "70c24c86f9d6f023",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-06 17:03"
+    },
+    {
+      "id": 585935122,
+      "title": "[HITCS] Merge pull request #33 from MostlyHarmlessxyz/add-ds-materials",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/c866159c26f6f7539fbcce4073af1148600cd249",
+      "source": "hitcs",
+      "source_id": "c866159c26f6f753",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-06 05:12"
+    },
+    {
+      "id": 3094740978,
+      "title": "[HITCS] Add Distributed materials",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/b68a37705a5fc0a668fb78babf4cd0e811cd84ff",
+      "source": "hitcs",
+      "source_id": "b68a37705a5fc0a6",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-06 00:17"
+    },
+    {
+      "id": 3219630676,
+      "title": "[HITCS] Update 哈工大计算学部导师.md",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/1c4d262278e850d5c544fc6a72533b84f2cbddfa",
+      "source": "hitcs",
+      "source_id": "1c4d262278e850d5",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-01 07:31"
+    },
+    {
+      "id": 353430272,
+      "title": "[HITCS] Update 哈工大计算学部导师.md",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/f3b586a239738eaf8b001f9eb0b6cb93891ff2e6",
+      "source": "hitcs",
+      "source_id": "f3b586a239738eaf",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-05-01 07:14"
+    },
+    {
+      "id": 1521517743,
+      "title": "[HITCS] Merge pull request #32 from GHZCreeper/main",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/fbe02327dbb99b5290425ca8f7e9c0c755fd96b3",
+      "source": "hitcs",
+      "source_id": "fbe02327dbb99b52",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-04-22 05:12"
+    },
+    {
+      "id": 3813185245,
+      "title": "[HITCS] Add files via upload",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/072b3727d11f847bebf16fe6afbd76a43704728c",
+      "source": "hitcs",
+      "source_id": "072b3727d11f847b",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-04-20 12:45"
+    },
+    {
+      "id": 681237221,
+      "title": "[HITCS] Add files via upload",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/f67730c1c2b5f440d9704daa4fc6e9bac65c703d",
+      "source": "hitcs",
+      "source_id": "f67730c1c2b5f440",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-04-20 12:42"
+    },
+    {
+      "id": 1840871958,
+      "title": "[HITCS] Add files via upload",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/c3c110306713addcd9706250ac75fbccd9d8aa01",
+      "source": "hitcs",
+      "source_id": "c3c110306713addc",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-04-19 04:17"
+    },
+    {
+      "id": 2099711317,
+      "title": "[HITCS] Create readme.md",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/382aa13be13aeb5193cfd2c596b471d6425eb74e",
+      "source": "hitcs",
+      "source_id": "382aa13be13aeb51",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-04-19 04:17"
+    },
+    {
+      "id": 972572655,
+      "title": "[HITCS] 收到喵",
+      "url": "https://github.com/HITLittleZheng/HITCS/commit/b502c68880c3cf58156273a33c2fc936aa4fd281",
+      "source": "hitcs",
+      "source_id": "b502c68880c3cf58",
+      "source_dept": null,
+      "category": "课程资料",
+      "published_at": "2026-04-15 17:10"
+    }
+  ],
+  "hoa_blog": [
+    {
+      "id": 1762524753,
+      "title": "自动化考研指南",
+      "url": "https://hoa.moe/blog/PEE-guide-for-auto",
+      "source": "hoa_blog",
+      "source_id": "690dfe51c4e68beb",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2026-04-23 00:00"
+    },
+    {
+      "id": 1562137446,
+      "title": "练习时长一年半大学生有感",
+      "url": "https://hoa.moe/blog/thoughts-from-a-college-student-with-one-and-a-half-years-of-practice",
+      "source": "hoa_blog",
+      "source_id": "5d1c536686f75205",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2026-03-01 00:00"
+    },
+    {
+      "id": 682975219,
+      "title": "HITSZ OpenAuto 参与指南",
+      "url": "https://hoa.moe/blog/contribution-guide",
+      "source": "hoa_blog",
+      "source_id": "28b55ff3f056d368",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2026-01-28 00:00"
+    },
+    {
+      "id": 655539803,
+      "title": "雅思一个月备考经验分享｜从零开始也能过线",
+      "url": "https://hoa.moe/blog/ielts-experience",
+      "source": "hoa_blog",
+      "source_id": "2712be5b075f97ab",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-10-26 00:00"
+    },
+    {
+      "id": 2101715614,
+      "title": "HITSZ OpenAuto 开发指南",
+      "url": "https://hoa.moe/blog/developer-guide",
+      "source": "hoa_blog",
+      "source_id": "7d45a29ecf54b8d0",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-10-15 00:00"
+    },
+    {
+      "id": 2502531813,
+      "title": "新版 HITSZ 校园网的无头登录方式",
+      "url": "https://hoa.moe/blog/hitsz-net-login-with-sso",
+      "source": "hoa_blog",
+      "source_id": "95299ae575537536",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-09-04 00:00"
+    },
+    {
+      "id": 1294596552,
+      "title": "专题：选课指南",
+      "url": "https://hoa.moe/blog/course-selection-auto",
+      "source": "hoa_blog",
+      "source_id": "4d29f9c8a5722a92",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-08-31 00:00"
+    },
+    {
+      "id": 3686808089,
+      "title": "新版校园网登录界面如何登录到服务器",
+      "url": "https://hoa.moe/blog/let-your-school-server-connect-to-wifi",
+      "source": "hoa_blog",
+      "source_id": "dbc03a195d0b5df7",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-05-31 00:00"
+    },
+    {
+      "id": 3173979690,
+      "title": "一场非通过性测试？",
+      "url": "https://hoa.moe/blog/summer-intern",
+      "source": "hoa_blog",
+      "source_id": "bd2f162ab30519f6",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-05-12 00:00"
+    },
+    {
+      "id": 2194683489,
+      "title": "大类招生、课程改革下的学习",
+      "url": "https://hoa.moe/blog/study-under-cluster-enrollment-and-course-reformation",
+      "source": "hoa_blog",
+      "source_id": "82d03661d2a82139",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-04-30 00:00"
+    },
+    {
+      "id": 2024228202,
+      "title": "如何通过 HITSZ Connect Verge 在校外优雅地访问校园服务器",
+      "url": "https://hoa.moe/blog/using-hitsz-connect-verge-to-ssh-school-server",
+      "source": "hoa_blog",
+      "source_id": "78a7456afd4fb380",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-02-23 00:00"
+    },
+    {
+      "id": 709359436,
+      "title": "Auto 本科生常用专业软件一览",
+      "url": "https://hoa.moe/blog/professional-softwares-for-auto-undergraduates",
+      "source": "hoa_blog",
+      "source_id": "2a47f74c1c105d30",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-01-20 00:00"
+    },
+    {
+      "id": 2441757716,
+      "title": "关于教务的两三事",
+      "url": "https://hoa.moe/blog/how-to-use-hitsz-jw",
+      "source": "hoa_blog",
+      "source_id": "918a44149c73d11b",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2025-01-04 00:00"
+    },
+    {
+      "id": 1130349501,
+      "title": "四、六级备考指北",
+      "url": "https://hoa.moe/blog/cet-intro",
+      "source": "hoa_blog",
+      "source_id": "435fc3bd03410857",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-08-23 00:00"
+    },
+    {
+      "id": 2786374368,
+      "title": "不转码的普通自动化学生能拿多少钱",
+      "url": "https://hoa.moe/blog/how-much-money-can-students-make-without-being-a-coder",
+      "source": "hoa_blog",
+      "source_id": "a614b2e0e7170da4",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-08-01 00:00"
+    },
+    {
+      "id": 580140296,
+      "title": "卡西欧 FX-991CNX 计算器使用指南",
+      "url": "https://hoa.moe/blog/how-to-use-fx991cn",
+      "source": "hoa_blog",
+      "source_id": "22943d0880dc2556",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-07-13 00:00"
+    },
+    {
+      "id": 2009955823,
+      "title": "平面简单桁架中零力杆的判断",
+      "url": "https://hoa.moe/blog/zero-force-poles",
+      "source": "hoa_blog",
+      "source_id": "77cd7def9a44ec8a",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-04-16 00:00"
+    },
+    {
+      "id": 2595972489,
+      "title": "AUTO 野生技术指南",
+      "url": "https://hoa.moe/blog/auto-survival-guide",
+      "source": "hoa_blog",
+      "source_id": "9abb65892e7289fc",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-04-03 00:00"
+    },
+    {
+      "id": 2038508633,
+      "title": "我是如何使用 OSA 镜像站的",
+      "url": "https://hoa.moe/blog/how-to-use-mirrors-in-hitsz",
+      "source": "hoa_blog",
+      "source_id": "79812c59e99eb711",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-03-24 00:00"
+    },
+    {
+      "id": 2003083323,
+      "title": "专题：Markdown 与 LaTeX",
+      "url": "https://hoa.moe/blog/markdown-and-latex",
+      "source": "hoa_blog",
+      "source_id": "7764a03be545b04d",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-02-01 00:00"
+    },
+    {
+      "id": 990035808,
+      "title": "你的学生邮箱能薅到哪些羊毛？",
+      "url": "https://hoa.moe/blog/privileges-with-edu-email",
+      "source": "hoa_blog",
+      "source_id": "3b02bf60623a291c",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-01-29 00:00"
+    },
+    {
+      "id": 3637454065,
+      "title": "编程语言杂谈",
+      "url": "https://hoa.moe/blog/programming-language-primer",
+      "source": "hoa_blog",
+      "source_id": "d8cf24f147a74686",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2024-01-29 00:00"
+    },
+    {
+      "id": 2826620019,
+      "title": "22 年自动化推免笔记 (清浙交)",
+      "url": "https://hoa.moe/blog/graduate-school-application-experience-sharing",
+      "source": "hoa_blog",
+      "source_id": "a87acc733be2d35c",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2023-12-01 00:00"
+    },
+    {
+      "id": 2041036243,
+      "title": "新人指南：不使用第三方工具访问 GitHub",
+      "url": "https://hoa.moe/blog/access-github",
+      "source": "hoa_blog",
+      "source_id": "79a7bdd3ce1cc378",
+      "source_dept": "HITSZ",
+      "category": "学习经验",
+      "published_at": "2023-11-30 00:00"
+    }
+  ]
+}

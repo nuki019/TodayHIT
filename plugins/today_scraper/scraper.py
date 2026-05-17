@@ -26,6 +26,7 @@ def _source_label(source: str) -> str:
         "hit_inst": "工大机构",
         "hitcs": "课程资料",
         "hoa_blog": "HOA博客",
+        "dept": "部门站点",
     }.get(source, source)
 
 
@@ -360,3 +361,157 @@ async def scrape_hoa_blog() -> list[dict[str, Any]]:
         })
 
     return articles
+
+
+# ── SUDY WP 通用爬虫（哈工大各子站点） ──────────────────
+
+# 文章 URL 模式：/YYYY/MMDD/c{col}a{id}/page.htm
+_SUDY_ARTICLE_RE = re.compile(r"/(\d{4})/(\d{4})/c(\d+)a(\d+)/page\.htm")
+
+# 各站点配置：(base_url, display_name)
+SUDY_SITES: list[tuple[str, str]] = [
+    # 职能部处
+    ("http://office.hit.edu.cn", "学校办公室"),
+    ("http://zzb.hit.edu.cn", "党委组织部"),
+    ("http://tzb.hit.edu.cn", "党委统战部"),
+    ("http://qingfeng.hit.edu.cn", "纪委办公室"),
+    ("http://xg.hit.edu.cn", "学生工作处"),
+    ("http://bwc.hit.edu.cn", "保卫部"),
+    ("http://gh.hit.edu.cn", "工会"),
+    ("http://bmc.hit.edu.cn", "保密部"),
+    ("http://hituc.hit.edu.cn", "本科生院"),
+    ("http://zsjyc.hit.edu.cn", "终身教育处"),
+    ("https://zsb.hit.edu.cn", "招生办"),
+    ("http://hitgs.hit.edu.cn", "研究生院"),
+    ("http://keyan.hit.edu.cn", "科研院"),
+    ("https://xgb.hit.edu.cn", "学工处"),
+    ("http://rsc.hit.edu.cn", "人事处"),
+    ("http://international.hit.edu.cn", "国际合作部"),
+    ("http://cwc.hit.edu.cn", "财务处"),
+    ("http://sj.hit.edu.cn", "审计处"),
+    ("https://gs.hit.edu.cn", "国资处"),
+    ("http://hqjt.hit.edu.cn", "后勤"),
+    ("http://cco.hit.edu.cn", "基建处"),
+    ("http://ltxc.hit.edu.cn", "离退休处"),
+    ("http://ca.hit.edu.cn", "网络信息办"),
+    ("http://gnc.hit.edu.cn", "国内合作处"),
+    # 直属单位
+    ("http://lib.hit.edu.cn", "图书馆"),
+    ("http://dag.hit.edu.cn", "档案馆"),
+    ("http://alumni.hit.edu.cn", "校友办"),
+    ("http://hitef.hit.edu.cn", "基金会"),
+    ("http://jc.hit.edu.cn", "期刊中心"),
+    ("http://sce.hit.edu.cn", "继续教育"),
+    ("http://ees.hit.edu.cn", "未来工学院"),
+    ("http://cie.hit.edu.cn", "国际教育"),
+    ("http://sesri.hit.edu.cn", "空间研究院"),
+    ("http://hitcam.hit.edu.cn", "分析测试"),
+    ("http://hityy.hit.edu.cn", "校医院"),
+    ("http://aim.hit.edu.cn", "资产公司"),
+    ("http://hitpress.hit.edu.cn", "出版社"),
+    ("http://xyy.hit.edu.cn", "先研院"),
+    # 教学学院
+    ("http://sa.hit.edu.cn", "航天学院"),
+    ("http://seie.hit.edu.cn", "电信学院"),
+    ("http://sme.hit.edu.cn", "机电学院"),
+    ("http://mse.hit.edu.cn", "材料学院"),
+    ("http://power.hit.edu.cn", "能源学院"),
+    ("http://hitee.hit.edu.cn", "电气学院"),
+    ("http://ise.hit.edu.cn", "仪器学院"),
+    ("http://math.hit.edu.cn", "数学学院"),
+    ("http://physics.hit.edu.cn", "物理学院"),
+    ("http://som.hit.edu.cn", "经管学院"),
+    ("http://hbs.hit.edu.cn", "商学院"),
+    ("http://rwskxb.hit.edu.cn", "人文社科"),
+    ("http://marx.hit.edu.cn", "马克思主义"),
+    ("http://civil.hit.edu.cn", "土木学院"),
+    ("http://env.hit.edu.cn", "环境学院"),
+    ("http://arch.hit.edu.cn", "建筑学院"),
+    ("http://jtxy.hit.edu.cn", "交通学院"),
+    ("http://cs.hit.edu.cn", "计算学部"),
+    ("http://sai.hit.edu.cn", "人工智能"),
+    ("http://software.hit.edu.cn", "软件学院"),
+    ("http://cys.hit.edu.cn", "网安学院"),
+    ("http://chemeng.hit.edu.cn", "化工学院"),
+    ("http://med.hit.edu.cn", "医学学院"),
+    ("http://life.hit.edu.cn", "生命学院"),
+    ("http://future.hit.edu.cn", "未来技术"),
+    ("http://tyb.hit.edu.cn", "体育部"),
+    ("http://sisd.hit.edu.cn", "深圳设计"),
+    # 校属研究机构
+    ("http://im.hit.edu.cn", "数学研究院"),
+    ("http://bioinformatics.hit.edu.cn", "生物信息"),
+    ("http://hcls.hit.edu.cn", "生命科学中心"),
+    ("http://aero.hit.edu.cn", "航空研究院"),
+    ("http://ai.hit.edu.cn", "人工智能研究院"),
+    # 地方研究院
+    ("http://cri.hit.edu.cn", "重庆研究院"),
+    ("http://zri.hit.edu.cn", "郑州研究院"),
+    ("http://sri.hit.edu.cn", "苏州研究院"),
+    # 分校区
+    ("http://www.hitwh.edu.cn", "哈工大威海"),
+    ("http://www.hitsz.edu.cn", "哈工大深圳"),
+]
+
+
+async def scrape_sudy_site(base_url: str, dept_name: str) -> list[dict[str, Any]]:
+    """爬取单个 SUDY WP 站点首页的文章链接。"""
+    async with httpx.AsyncClient(
+        headers=HEADERS, follow_redirects=True, timeout=12
+    ) as client:
+        resp = await client.get(base_url)
+        if resp.status_code != 200:
+            return []
+        html = resp.text
+
+    soup = BeautifulSoup(html, "lxml")
+    articles: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+
+    for link in soup.find_all("a", href=True):
+        href = link.get("href", "")
+        title = link.get_text(strip=True)
+        if not title or len(title) < 5:
+            continue
+
+        m = _SUDY_ARTICLE_RE.search(href)
+        if not m:
+            continue
+
+        url = href if href.startswith("http") else base_url.rstrip("/") + href
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+
+        year, md = int(m.group(1)), m.group(2)
+        try:
+            pub_date = datetime(year, int(md[:2]), int(md[2:]))
+        except ValueError:
+            pub_date = None
+
+        title = re.sub(r"^\d{4}[-/]\d{2}[-/]\d{2}\s*", "", title)
+
+        articles.append({
+            "id": _url_hash(url),
+            "title": title,
+            "url": url,
+            "source": "dept",
+            "source_id": hashlib.md5(url.encode()).hexdigest()[:16],
+            "source_dept": dept_name,
+            "category": "部门通知",
+            "published_at": pub_date,
+        })
+
+    return articles
+
+
+async def scrape_all_departments() -> list[dict[str, Any]]:
+    """爬取所有 SUDY WP 子站点。"""
+    all_articles: list[dict[str, Any]] = []
+    for base_url, dept_name in SUDY_SITES:
+        try:
+            items = await scrape_sudy_site(base_url, dept_name)
+            all_articles.extend(items)
+        except Exception:
+            pass
+    return all_articles
